@@ -92,8 +92,8 @@
     const near = (x, y, r) => PB.dist(s.x, s.y, x, y) < r;
     for (const f of S.fighters) if (f.hp > 0 && f.st !== "taxi" && near(f.x, f.y, 9)) { E.hitAircraft(S, f, 1, ev, "p"); return true; }
     for (const b of S.bombers) if (b.hp > 0 && b.t >= 0 && near(b.x, b.y, 13)) { E.hitAircraft(S, b, 1, ev, "p"); return true; }
-    /* low enough to hit what is on the ground or the water, near the end of its run */
-    if (s.life > 16) return false;
+    /* and, as in 1984, everything on the ground or the water but the
+       factories and the battleship, which take bombs */
     const ground = (o, r, kind, hp) => {
       if (o.hp <= 0 || !near(o.x, o.y, r)) return false;
       o.hp -= 1;
