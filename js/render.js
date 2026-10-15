@@ -11,7 +11,7 @@
 "use strict";
 (() => {
   const K = PB.K, E = PB.Engine, FX = PB.FX, ART = PB.ART, TR = PB.Terrain, C = PB.C;
-  const R = PB.Render = { g: null, cv: null, cam: { x: 0, y: 0 }, alpha: 0, frame: 0, rotor: 0, shake: 0, flashT: 0 };
+  const R = PB.Render = { g: null, cv: null, cam: { x: 0, y: 0 }, alpha: 0, frame: 0, rotor: 0, shake: 0, flashT: 0, keepOut: [] };
   const SHADOW_A = 0.32;
 
   R.init = cv => { R.cv = cv; R.g = cv.getContext("2d"); R.g.imageSmoothingEnabled = false; };
@@ -46,7 +46,7 @@
     let shx = 0, shy = 0;
     if (R.shake > 0.3) { shx = Math.round((Math.random() - 0.5) * R.shake); shy = Math.round((Math.random() - 0.5) * R.shake); R.shake *= 0.86; } else R.shake = 0;
     ox = Math.floor(R.cam.x) + shx; oy = Math.floor(R.cam.y) + shy;
-    const m = PB.MAP, h = S.heli;
+    const m = PB.MAP, h = S.heli, calm = PB.calm();
     const ip = (o, vx, vy) => [sx(o.x + vx * al), sy(o.y + vy * al)];
 
     TR.draw(g, ox, oy);
@@ -138,7 +138,7 @@
             blit(g, K.spr("spare", cv.a + 0.3), sx(p.x), sy(p.y));
           }
           /* the landing spot blinks when the helicopter is coming in to it */
-          if (ui.aids && ui.aids.landing && h.state === "fly" && h.bombs < C.HELI.bombs && PB.dist(h.x, h.y, cv.x, cv.y) < 220 && (t >> 4) % 2 === 0) {
+          if (ui.aids && ui.aids.landing && h.state === "fly" && h.bombs < C.HELI.bombs && PB.dist(h.x, h.y, cv.x, cv.y) < 220 && (calm || (t >> 4) % 2 === 0)) {
             const p = E.onCarrier(cv, E.DECK_SPOT.u, E.DECK_SPOT.w);
             g.globalAlpha = 0.85; g.drawImage(ring(11, "#9fffb0"), Math.round(sx(p.x) - 12), Math.round(sy(p.y) - 12)); g.globalAlpha = 1;
           }
@@ -191,7 +191,7 @@
       else {
         blit(g, K.spr("heli", hAng), x, y);
         drawRotor(g, x, y, hAng, h.state === "deck" ? 0.25 : 1);
-        if (h.inv > 0 && (t >> 2) % 2) { g.globalAlpha = 0.35; blit(g, K.silhouette(K.spr("heli", hAng), "#ffffff"), x, y); g.globalAlpha = 1; }
+        if (h.inv > 0 && (calm || (t >> 2) % 2)) { g.globalAlpha = calm ? 0.2 : 0.35; blit(g, K.silhouette(K.spr("heli", hAng), "#ffffff"), x, y); g.globalAlpha = 1; }
       }
     }
     /* ---- the jets ---- */
@@ -215,7 +215,7 @@
     const aids = ui.aids || {};
     if (aids.reticle && h.state === "fly" && h.bombs > 0) {
       const p = E.bombLanding(h), x = sx(p.x), y = sy(p.y), on = targetUnder(S, p.x, p.y);
-      const col = on ? "#ffd84d" : "rgba(255,255,255,.75)", r = on ? 4 + ((t >> 3) & 1) : 4;
+      const col = on ? "#ffd84d" : "rgba(255,255,255,.75)", r = on ? 4 + (calm ? 1 : (t >> 3) & 1) : 4;
       g.fillStyle = col;
       /* four corners round where it will land, and a dot in the middle */
       for (const [dx, dy] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
@@ -226,13 +226,32 @@
       g.fillRect(Math.round(x), Math.round(y), 1, 1);
     }
     if (aids.arrows) {
+      /* the point on the screen's edge toward x, y, drawn back toward the middle out of the HUD's way */
+      const edge = (x, y, m) => {
+        const cx = K.VW / 2, cy = K.VH / 2, dx = x - cx, dy = y - cy, k = Math.min((cx - m) / Math.abs(dx || 1e-6), (cy - m) / Math.abs(dy || 1e-6));
+        let f = 1;
+        const inside = f => R.keepOut.some(r => { const px = cx + dx * k * f, py = cy + dy * k * f; return px > r.x0 && px < r.x1 && py > r.y0 && py < r.y1; });
+        while (f > 0.4 && inside(f)) f -= 0.02;
+        return [cx + dx * k * f, cy + dy * k * f, Math.atan2(dy, dx)];
+      };
       const arrow = (wx, wy, col, big) => {
         const x = sx(wx), y = sy(wy);
         if (onScreen(x, y, -8)) return;
-        const cx = K.VW / 2, cy = K.VH / 2, dx = x - cx, dy = y - cy, k = Math.min((cx - 12) / Math.abs(dx || 1e-6), (cy - 12) / Math.abs(dy || 1e-6));
-        const ax = cx + dx * k, ay = cy + dy * k, a = Math.atan2(dy, dx);
+        const [ax, ay, a] = edge(x, y, 12);
         drawArrow(g, ax, ay, a, col, big);
       };
+      /* the nearest factory still standing, with its mark beside the arrow: the way to the work */
+      let near = null, nd = Infinity;
+      S.factories.forEach(f => { if (f.dead) return; const mf = m.factories[f.id], dd = PB.dist(h.x, h.y, mf.x, mf.y); if (dd < nd) { nd = dd; near = { f, mf }; } });
+      if (near) {
+        const x = sx(near.mf.x), y = sy(near.mf.y);
+        if (!onScreen(x, y, -8)) {
+          const [ax, ay, a] = edge(x, y, 14);
+          drawArrow(g, ax, ay, a, "#e4572e", true);
+          const gx = Math.round(ax - Math.cos(a) * 12 - 4), gy = Math.round(ay - Math.sin(a) * 12 - 4);
+          g.fillStyle = K.OUT; g.fillRect(gx - 2, gy - 2, 13, 13); g.fillStyle = "#e4572e"; g.fillRect(gx - 1, gy - 1, 11, 11); g.drawImage(ART.glyph(near.f.kind, K.OUT), gx, gy);
+        }
+      }
       if (!cv.sunk && h.state !== "deck") arrow(cv.x, cv.y, "#7fe08a", true);
       if (sh.launched && !sh.sunk) arrow(sh.x, sh.y, "#ffb03a", true);
       for (const f of S.fighters) if (f.st !== "taxi" && PB.dist(h.x, h.y, f.x, f.y) < 700) arrow(f.x, f.y, "#ff6b52", false);
@@ -279,7 +298,7 @@
     return c;
   });
   function drawArrow(g, x, y, a, col, big) {
-    const L = big ? 6 : 4, W2 = big ? 4 : 3;
+    const L = big ? 8 : 6, W2 = big ? 5 : 4;
     const tip = [x + Math.cos(a) * L, y + Math.sin(a) * L], l = [x + Math.cos(a + 2.5) * W2, y + Math.sin(a + 2.5) * W2], r = [x + Math.cos(a - 2.5) * W2, y + Math.sin(a - 2.5) * W2];
     g.fillStyle = K.OUT;
     tri(g, tip[0] + 1, tip[1] + 1, l[0] + 1, l[1] + 1, r[0] + 1, r[1] + 1);

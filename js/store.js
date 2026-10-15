@@ -9,8 +9,8 @@
 
   /* ---- the aids: Classic is 1984, Field is a modern helping hand ---- */
   PB.AID_LIST = [
-    ["radar", "Radar chart", "The whole bay in the corner: the factories standing and down, the carrier, the battleship, enemy aircraft."],
-    ["arrows", "Edge markers", "Arrows at the edge of the screen toward the carrier, the battleship and enemy aircraft."],
+    ["radar", "Corner chart", "The whole bay in the corner: the factories standing and down, the carrier, the battleship, enemy aircraft."],
+    ["arrows", "Edge markers", "Arrows at the edge of the screen toward the nearest factory, the carrier, the battleship and enemy aircraft."],
     ["reticle", "Bomb sight", "Where a bomb dropped now would land. It lights up over something worth hitting."],
     ["landing", "Landing guide", "The carrier's landing spot blinks as you come in with bombs to load."],
     ["direct", "Direct steering", "The helicopter flies where the stick points. Classic: left and right turn it, up flies forward, as in 1984."],
@@ -19,8 +19,13 @@
   PB.AIDS = { field: {}, classic: {} };
   for (const [k] of PB.AID_LIST) { PB.AIDS.field[k] = true; PB.AIDS.classic[k] = false; }
 
+  /* the system's "reduce motion": screen shake starts off, and nothing on the HUD blinks */
+  const CALM = typeof matchMedia === "function" ? matchMedia("(prefers-reduced-motion: reduce)") : { matches: false };
+  PB.calm = () => CALM.matches;
+
   PB.SPEEDS = { classic: ["Classic", 50], relaxed: ["Relaxed", 40], brisk: ["Brisk", 60] };
-  PB.prefs = Object.assign({ aids: "field", over: {}, speed: "classic", scanlines: false, shake: true }, PB.store.get(KEY_PREFS, {}));
+  /* learned: the first bomb and the first landing are done, so the key strip need not wait for them */
+  PB.prefs = Object.assign({ aids: "field", over: {}, speed: "classic", scanlines: false, shake: !CALM.matches, learned: false }, PB.store.get(KEY_PREFS, {}));
   if (!PB.AIDS[PB.prefs.aids]) PB.prefs.aids = "field";
   PB.savePrefs = () => PB.store.set(KEY_PREFS, PB.prefs);
   PB.aid = name => { const o = PB.prefs.over[name]; return o === undefined ? !!PB.AIDS[PB.prefs.aids][name] : !!o; };
