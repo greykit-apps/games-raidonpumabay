@@ -189,7 +189,7 @@
     function save() {
       const i = document.getElementById("pb-name"), name = (i && i.value.trim().slice(0, 14)) || "Puma";
       PB.setLastName(name);
-      placed = PB.addScore({ name, score: S.score, round: S.round, diff: S.D.name, rank, at: Date.now() });
+      placed = PB.addScore({ name, score: S.score, round: S.round, diff: S.D.name, rank, at: Date.now(), code: !!S.cheated });
       naming = false;
       UI.close(true);
       reopen();
@@ -203,7 +203,7 @@
       });
     }
   };
-  const scoresTable = (list, mark = -1) => list.length ? `<table class="scores"><tr><th></th><th>Name</th><th class="num">Score</th><th>Round</th><th>Rated</th></tr>${list.map((e, i) => `<tr${i === mark ? ' class="mine"' : ""}><td class="num">${i + 1}</td><td>${esc(e.name)}</td><td class="num">${num(e.score)}</td><td>${e.round}, ${esc(e.diff)}</td><td>${esc(e.rank || "")}</td></tr>`).join("")}</table>` : `<p class="note">No scores yet. They are kept in this browser.</p>`;
+  const scoresTable = (list, mark = -1) => list.length ? `<table class="scores"><tr><th></th><th>Name</th><th class="num">Score</th><th>Round</th><th>Rated</th></tr>${list.map((e, i) => `<tr${i === mark ? ' class="mine"' : ""}><td class="num">${i + 1}</td><td>${esc(e.name)}</td><td class="num">${num(e.score)}</td><td>${e.round}, ${esc(e.diff)}${e.code ? " · code" : ""}</td><td>${esc(e.rank || "")}</td></tr>`).join("")}</table>` : `<p class="note">No scores yet. They are kept in this browser.</p>`;
   UI.scores = () => UI.open("High scores", { wide: true, html: () => scoresTable(PB.scores()) + `<p class="note">The best ten, kept in this browser.</p>` });
 
   /* ---- Settings (greykit.games STANDARD.md §7: the game's own, Sound, speed, This browser) ---- */

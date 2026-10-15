@@ -20,7 +20,7 @@
     const facs = C.KIND_ORDER.map(k => `<div class="fac" data-k="${k}"><img class="ico" src="${ART.url(ART.glyph(k, "#e9e4d8"))}" width="18" height="18" alt=""><span class="lv"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span></div>`).join("");
     el.innerHTML = `
       <div class="hp" id="h-status">
-        <div class="h-top"><span class="num h-score">0</span><span class="h-round"><span class="lbl">Round</span> <b class="num">1</b></span></div>
+        <div class="h-top"><span class="num h-score">0</span><span class="h-code" hidden title="Konami code: bombs and armour without end until the round is won">Code</span><span class="h-round"><span class="lbl">Round</span> <b class="num">1</b></span></div>
         <div class="h-row"><span class="lbl">Damage</span><span class="h-bar">${"<i></i>".repeat(10)}</span></div>
         <div class="h-row"><span class="lbl">Bombs</span><span class="h-bombs">${bombs}</span></div>
         <div class="h-row"><span class="lbl">Reserve</span><span class="h-helis"></span><span class="h-carrier"><span class="lbl">Carrier</span> <b class="num">100%</b></span></div>
@@ -63,6 +63,7 @@
     HUD.toasts = HUD.toasts.filter(t => { if (t.until > now) return true; t.d.remove(); return false; });
     set(el.querySelector(".h-score"), "score", S.score, (e, v) => { e.textContent = v.toLocaleString("en-US"); });
     set(el.querySelector(".h-round b"), "round", S.round, (e, v) => { e.textContent = v; });
+    set($("h-status"), "konami", !!S.konami, (e, v) => { e.classList.toggle("konami", v); e.querySelector(".h-code").hidden = !v; });
     const dmg = h.state === "gone" ? 10 : Math.ceil(h.dmg / 10);
     set(el.querySelector(".h-bar"), "dmg", dmg, (e, v) => {
       e.className = "h-bar" + (v >= 8 ? " crit" : v >= 6 ? " high" : "");

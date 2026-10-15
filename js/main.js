@@ -275,6 +275,7 @@
     if (game.mode === "play") {
       const fresh = PB.Input.pollPad();
       if (!UI.sheet) {
+        for (const a of fresh) konamiStep("pad", a);
         if (fresh.includes("pause")) { game.pause(); return; }
         if (fresh.includes("map")) toggleMap();
       }
@@ -328,6 +329,23 @@
     if (!game.ui.mapView) game.acc = 0;
   }
 
+  /* ---- the Konami code: up up down down left right left right B A, on the
+     keys or on a pad's buttons (B is the bomb, A the gun) ---- */
+  const KONAMI = { keys: ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "KeyB", "KeyA"],
+    pad: ["up", "up", "down", "down", "left", "right", "left", "right", "bomb", "fire"] };
+  const konamiAt = { keys: 0, pad: 0 };
+  function konamiStep(src, x) {
+    const seq = KONAMI[src], i = konamiAt[src];
+    /* a wrong press starts it over; a third up still leaves two in hand */
+    konamiAt[src] = x === seq[i] ? i + 1 : x === seq[0] ? (i === 2 ? 2 : 1) : 0;
+    if (konamiAt[src] < seq.length) return;
+    konamiAt.keys = konamiAt.pad = 0;
+    if (!game.S || !E.konami(game.S)) return;
+    game.warned = 0;
+    SFX.play("repaired");
+    toast("Konami code: bombs and armour without end, for the rest of this round", "green", 4000);
+  }
+
   /* ---- keys ---- */
   document.addEventListener("keydown", ev => {
     SFX.unlock();
@@ -340,6 +358,7 @@
     if (game.mode !== "play") return;
     const a = PB.Input.actionFor(ev.code);
     if (a) ev.preventDefault();
+    if (!ev.repeat) konamiStep("keys", ev.code);
     if (game.ui.mapView) { if (a === "map" || a === "pause") toggleMap(); return; }
     if (a === "pause") { game.pause(); return; }
     if (a === "map") { toggleMap(); return; }

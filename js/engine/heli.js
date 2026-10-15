@@ -176,7 +176,8 @@
     }
     if (cmd.bomb && h.bombCd <= 0) {
       if (h.bombs > 0) {
-        h.bombs--; h.bombCd = 10;
+        if (!S.konami) h.bombs--;
+        h.bombCd = 10;
         S.bombs.push({ by: "p", x: h.x, y: h.y, vx: h.vx * 0.92, vy: h.vy * 0.92, t: 0 });
         S.stats.bombs++;
         ev.push({ t: "bombDrop", x: h.x, y: h.y, n: h.bombs });
@@ -191,7 +192,7 @@
 
   E.hurtHeli = (S, n, cause, ev, x, y) => {
     const h = S.heli;
-    if (h.state === "down" || h.state === "gone" || h.inv > 0) return;
+    if (h.state === "down" || h.state === "gone" || h.inv > 0 || S.konami) return;
     h.dmg = Math.min(100, h.dmg + n * S.D.dmg);
     ev.push({ t: "hit", x: x == null ? h.x : x, y: y == null ? h.y : y, n, cause, dmg: h.dmg });
     if (h.dmg >= 100) E.heliDown(S, cause, ev);
@@ -199,10 +200,21 @@
   E.heliDown = (S, cause, ev) => {
     const h = S.heli;
     if (h.state === "down" || h.state === "gone") return;
+    /* under the code nothing brings it down: off a sinking deck, it simply flies */
+    if (S.konami) { if (h.state !== "fly") Object.assign(h, { state: "fly", alt: Math.max(h.alt, 0.3), vx: S.carrier.vx, vy: S.carrier.vy, away: true }); return; }
     if (h.state === "deck" || h.state === "landing" || h.state === "takeoff") { h.alt = Math.max(h.alt, 0.3); h.vx = S.carrier.vx; h.vy = S.carrier.vy; }
     h.state = "down"; h.downT = 0; h.dmg = 100; h.cause = cause;
     S.stats.lost++;
     ev.push({ t: "heliDown", x: h.x, y: h.y, cause });
+  };
+  /* the Konami code: a full load of bombs that never runs down, and an
+     airframe nothing can hurt, until the round is over */
+  E.konami = S => {
+    const h = S.heli;
+    if (S.konami || S.phase !== "play" || h.state === "down" || h.state === "gone") return false;
+    S.konami = true; S.cheated = true;
+    h.dmg = 0; h.bombs = H.bombs;
+    return true;
   };
   /* the next helicopter up from the hangar deck, if there is one, and a deck to put it on */
   E.nextHeli = (S, ev) => {
