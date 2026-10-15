@@ -11,7 +11,9 @@
 "use strict";
 (() => {
   const K = PB.K, E = PB.Engine, FX = PB.FX, ART = PB.ART, TR = PB.Terrain, C = PB.C;
-  const R = PB.Render = { g: null, cv: null, cam: { x: 0, y: 0 }, alpha: 0, frame: 0, rotor: 0, shake: 0, flashT: 0, keepOut: [] };
+  /* padT, padB: how much of the screen the HUD covers above and below the helicopter (js/hud.js);
+     the camera centres the helicopter in what is left, easing there (mid) */
+  const R = PB.Render = { g: null, cv: null, cam: { x: 0, y: 0 }, alpha: 0, frame: 0, rotor: 0, shake: 0, flashT: 0, keepOut: [], padT: 0, padB: 0, mid: null };
   const SHADOW_A = 0.32;
 
   R.init = cv => { R.cv = cv; R.g = cv.getContext("2d"); R.g.imageSmoothingEnabled = false; };
@@ -21,11 +23,14 @@
     if (h.state === "deck" || h.state === "takeoff") return { x: h.x, y: h.y - 20 };
     return { x: h.x + h.vx * 34, y: h.y + h.vy * 30 };
   };
-  R.snap = S => { const a = aim(S); R.cam.x = PB.wrap(a.x - K.VW / 2); R.cam.y = PB.wrap(a.y - K.VH / 2); R.cx = a.x; R.cy = a.y; };
+  /* where on the screen the aim sits, down from the top: the middle of the clear band, never far from the true middle */
+  const midWant = () => PB.clamp((R.padT + K.VH - R.padB) / 2, K.VH * 0.5, K.VH * 0.62);
+  R.snap = S => { const a = aim(S); R.mid = midWant(); R.cam.x = PB.wrap(a.x - K.VW / 2); R.cam.y = PB.wrap(a.y - R.mid); R.cx = a.x; R.cy = a.y; };
   R.follow = (S, dt) => {
     const a = aim(S), k = 1 - Math.pow(0.9, dt / 16.7);
     R.cx = PB.wrap(R.cx + PB.wd(R.cx, a.x) * k); R.cy = PB.wrap(R.cy + PB.wd(R.cy, a.y) * k);
-    R.cam.x = PB.wrap(R.cx - K.VW / 2); R.cam.y = PB.wrap(R.cy - K.VH / 2);
+    const want = midWant(); R.mid = R.mid === null ? want : R.mid + (want - R.mid) * k * 0.3;
+    R.cam.x = PB.wrap(R.cx - K.VW / 2); R.cam.y = PB.wrap(R.cy - R.mid);
   };
 
   /* world to screen, the short way round the bay */

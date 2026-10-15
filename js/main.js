@@ -185,7 +185,6 @@
   game.pause = () => { if (game.mode !== "play" || UI.sheet) return; PB.Input.clear(); checkpoint(); UI.pause(); };
   game.unpause = () => { game.acc = 0; game.last = performance.now(); };
   game.leave = () => { checkpoint(true); game.toTitle(); };
-  game.restart = () => { const S = game.S; if (!S) return; PB.clearGame(); game.start(S.diff); };
   game.abandon = () => { const S = game.S; if (!S) return; S.phase = "over"; S.end = { why: "abandon" }; PB.clearGame(); finish(); };
   game.nextRound = leave => {
     const S = game.S; if (!S) return;
@@ -201,7 +200,7 @@
   function checkpoint(force) {
     const S = game.S;
     if (!S || game.mode !== "play" || S.phase === "over" || S.phase === "lost") return;
-    if (PB.aid("resume") || force) PB.saveGame(S);
+    if (PB.prefs.resume || force) PB.saveGame(S);
   }
   function finish() {
     const S = game.S;
@@ -348,14 +347,15 @@
     if (n >= 4) titleAcc = 0;
     PB.FX.step();
     if (D.phase === "over" || D.phase === "report" || D.phase === "lost") { newDemo(); PB.FX.clear(); }
-    const VW = K.VW, VH = K.VH, g = R.g, rcv = R.cv;
-    K.VW = cv.width; K.VH = cv.height;
+    /* the title has no HUD over the bay: its camera keeps to the true middle, and leaves the game's alone */
+    const VW = K.VW, VH = K.VH, g = R.g, rcv = R.cv, pads = [R.padT, R.padB, R.mid];
+    K.VW = cv.width; K.VH = cv.height; R.padT = R.padB = 0; R.mid = null;
     R.init(cv);
     if (!game.demoCam) { R.snap(D); game.demoCam = true; }
     R.follow(D, dt * 0.5);
     R.alpha = PB.clamp(titleAcc / 20, 0, 1);
     R.draw(D, { aids: {} });
-    K.VW = VW; K.VH = VH; R.g = g; R.cv = rcv;
+    K.VW = VW; K.VH = VH; R.g = g; R.cv = rcv; [R.padT, R.padB, R.mid] = pads;
   }
   function toggleMap() {
     if (!game.S) return;
@@ -410,13 +410,14 @@
   addEventListener("pagehide", () => checkpoint());
   document.addEventListener("pointerdown", () => { SFX.unlock(); if (game.mode === "title" && !SFX.tune && !SMALL.matches) SFX.startTune(); }, true);
   /* the pointer moves the focus, so the lit control is the one under it */
+  /* but not in a question before something that cannot be undone: there Enter stays on Cancel, and the pointer only lights what it is over */
   document.addEventListener("pointerover", ev => {
     if (ev.pointerType !== "mouse") return;
     const b = ev.target.closest && ev.target.closest("button:not(:disabled), summary");
-    if (!b || b === document.activeElement || !b.closest(".pb-sheet, .pb-ask, #title") || b.closest(".sh-head")) return;
+    if (!b || b === document.activeElement || !b.closest(".pb-sheet, #title") || b.closest(".sh-head")) return;
     const a = document.activeElement;
     if (a && a.matches("input")) return;
-    if (document.querySelector(".pb-ask") && !b.closest(".pb-ask")) return;
+    if (document.querySelector(".pb-ask")) return;
     b.focus({ preventScroll: true });
   });
   $("title").addEventListener("click", ev => { const b = ev.target.closest("[data-act]"); if (b) titleAct(b.dataset.act); });

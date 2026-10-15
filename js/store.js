@@ -13,7 +13,6 @@
     ["arrows", "Edge markers", "Arrows at the edge of the screen toward the nearest factory, the carrier, the battleship and enemy aircraft."],
     ["reticle", "Bomb sight", "Where a bomb dropped now would land. It lights up over something worth hitting."],
     ["landing", "Landing guide", "The carrier's landing spot blinks as you come in with bombs to load."],
-    ["resume", "Resume a game", "Leave mid-game and come back to it. Classic: a game is played through."],
   ];
   PB.AIDS = { field: {}, classic: {} };
   for (const [k] of PB.AID_LIST) { PB.AIDS.field[k] = true; PB.AIDS.classic[k] = false; }
@@ -25,12 +24,17 @@
   /* ---- the controls: Classic turns and thrusts as 1984 did; Modern flies where the stick points ---- */
   PB.STEER = { classic: "Classic", modern: "Modern" };
 
-  PB.SPEEDS = { classic: ["Classic", 50], relaxed: ["Relaxed", 40], brisk: ["Brisk", 60] };
-  /* learned: the first bomb and the first landing are done, so the key strip need not wait for them */
-  PB.prefs = Object.assign({ aids: "field", over: {}, steer: "classic", speed: "classic", scanlines: false, shake: !CALM.matches, learned: false }, PB.store.get(KEY_PREFS, {}));
+  /* the game's clock, steps each second; the keys are kept as they were saved */
+  PB.SPEEDS = { classic: ["Normal", 50], relaxed: ["Relaxed", 40], brisk: ["Brisk", 60] };
+  /* learned: the first bomb and the first landing are done, so the key strip need not wait for them;
+     steerAsked: the first New game has offered Classic or Modern controls;
+     resume: a game left in the middle is kept, whatever the aids */
+  PB.prefs = Object.assign({ aids: "field", over: {}, steer: "classic", speed: "classic", scanlines: false, shake: !CALM.matches, learned: false, steerAsked: false, resume: true }, PB.store.get(KEY_PREFS, {}));
   if (!PB.AIDS[PB.prefs.aids]) PB.prefs.aids = "field";
   if (!PB.STEER[PB.prefs.steer]) PB.prefs.steer = "classic";
   delete PB.prefs.over.direct; /* steering was a Field aid once; it is the Controls setting now */
+  /* so was keeping a game: a choice made then still holds */
+  if (PB.prefs.over.resume !== undefined) { PB.prefs.resume = !!PB.prefs.over.resume; delete PB.prefs.over.resume; }
   PB.modern = () => PB.prefs.steer === "modern";
   PB.savePrefs = () => PB.store.set(KEY_PREFS, PB.prefs);
   PB.aid = name => { const o = PB.prefs.over[name]; return o === undefined ? !!PB.AIDS[PB.prefs.aids][name] : !!o; };
