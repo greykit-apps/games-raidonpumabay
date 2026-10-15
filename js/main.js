@@ -153,9 +153,9 @@
     } else HUD.toast(`Round ${S.round}, back in the air`, "", 2000);
   }
   const SEP = " <span class=\"sep\"></span> ";
-  const keysHint = () => (PB.aid("direct") ? "<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> fly that way" : "<kbd>←</kbd><kbd>→</kbd> turn <kbd>↑</kbd> fly") +
+  const keysHint = () => (PB.modern() ? "<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> fly that way" : "<kbd>←</kbd><kbd>→</kbd> turn <kbd>↑</kbd> fly") +
     SEP + "<kbd>Space</kbd> gun" + SEP + "<kbd>B</kbd> bomb" + SEP + "slow down over the deck to land";
-  const landHint = () => "Back to the carrier for bombs and repairs" + SEP + (PB.aid("direct") ? "<kbd>Shift</kbd>" : "<kbd>↓</kbd>") + " slow down over the deck to land";
+  const landHint = () => "Back to the carrier for bombs and repairs" + SEP + (PB.modern() ? "<kbd>Shift</kbd>" : "<kbd>↓</kbd>") + " slow down over the deck to land";
   /* the first game's key strip: the keys until a bomb is away, then landing when it is needed */
   function teachHint(S) {
     const t = game.teach, h = S.heli;

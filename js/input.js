@@ -2,10 +2,10 @@
  * the next step.
  *
  * Classic steering is 1984's: left and right turn the helicopter, up flies
- * it forward, down brakes and backs it off. Direct steering (a Field aid)
- * flies it the way the stick points: the engine turns it to face that way
- * and goes. Either way Space is the gun and B drops a bomb; hold B to drop
- * a stick of them. */
+ * it forward, down brakes and backs it off, and it is the default. Modern
+ * steering (chosen in Settings) flies it the way the stick points: the
+ * engine turns it to face that way and goes. Either way Space is the gun
+ * and B drops a bomb; hold B to drop a stick of them. */
 "use strict";
 (() => {
   const I = PB.Input = { held: new Set(), pressed: new Set(), pad: new Set(), padPrev: new Set(), stick: null, bombHeld: 0, device: "keys" };
@@ -41,7 +41,7 @@
     if (on("up") || on("upleft") || on("upright")) my -= 1;
     if (on("down") || on("downleft") || on("downright")) my += 1;
     const c = { turn: 0, thrust: 0, steer: null, fire: on("fire"), bomb: false };
-    if (PB.aid("direct")) {
+    if (PB.modern()) {
       let x = Math.sign(mx), y = Math.sign(my);
       if (I.stick) { x = I.stick.x; y = I.stick.y; }
       if (x || y) { c.steer = PB.normAng(Math.atan2(x, -y)); c.thrust = 1; }

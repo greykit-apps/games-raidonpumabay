@@ -33,13 +33,15 @@ Radar sees you coming and the airfield scrambles fighters; bomb its three hangar
 
 ## Classic and Field
 
-**Classic** flies as 1984 did: turn and thrust, the gauges, and your eyes. **Field**, the default, adds the radar chart, arrows at the screen's edge toward the carrier, the battleship and enemy aircraft, a bomb sight, a landing guide, Direct steering (the helicopter flies where the stick points), and leaving a game to come back to it. Settings has each on its own; `L` switches the set in the air.
+**Classic** flies as 1984 did: the gauges and your eyes. **Field**, the default, adds the radar chart, arrows at the screen's edge toward the carrier, the battleship and enemy aircraft, a bomb sight, a landing guide, and leaving a game to come back to it. Settings has each on its own; `L` switches the set in the air.
+
+Steering is a setting of its own, under Controls. **Classic**, the default, turns and thrusts as 1984 did: left and right turn the helicopter, up flies forward, down brakes. **Modern** flies the helicopter the way the stick points.
 
 ## Keys
 
 | | |
 |---|---|
-| Arrows or WASD | Classic: turn, forward, brake. Direct: fly that way (`Shift` brakes) |
+| Arrows or WASD | Classic controls (the default): turn, forward, brake. Modern: fly that way (`Shift` brakes) |
 | `Space` / `J` | gun |
 | `B` / `X` / `K` | bomb; hold for a stick |
 | `Tab` | the chart; the game waits |
