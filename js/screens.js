@@ -108,7 +108,7 @@
     UI.open("New game", { back: () => PB.game.toTitle(),
       html: () => `<p class="lede">The Wolf Empire has six factories on the islands of Puma Bay, and a battleship building in a secret yard. You have a carrier, a helicopter, and nine bombs at a time.</p>
         <div class="diffs">${C.DIFF.map((d, i) => `<button data-d="${i}" class="${i === last ? "primary" : ""}"${i === last ? " autofocus" : ""}><b><kbd>${i + 1}</kbd>${esc(d.name)}</b><span>${esc(d.note)}</span></button>`).join("")}</div>
-        <p class="note">${PB.prefs.aids === "field" ? "Aids: <b>Field</b>, the modern helps: a chart of the bay in the corner, arrows toward the nearest factory and the carrier, a bomb sight and a landing guide." : "Aids: <b>Classic</b>, as 1984 flew: turn and thrust, the gauges, and your eyes."}${Object.keys(PB.prefs.over).length ? " Adjusted in Settings." : ""} Change them in Settings, or with <kbd>L</kbd> in the air.</p>`,
+        <p class="note">${PB.prefs.aids === "field" ? "Aids: <b>Field</b>, the modern helps: a chart of the bay in the corner, arrows toward the nearest factory and the carrier, a bomb sight and a landing guide." : "Aids: <b>Classic</b>, as 1984 flew: the gauges and your eyes."}${Object.keys(PB.prefs.over).length ? " Adjusted in Settings." : ""} Change them in Settings, or with <kbd>L</kbd> in the air.</p>`,
       onKey: ev => { const n = +ev.key; if (n >= 1 && n <= 3) { ev.preventDefault(); go(n - 1); return true; } return false; },
       onClick: b => { if (b.dataset.d !== undefined) go(+b.dataset.d); },
     });
@@ -126,7 +126,7 @@
         <button data-act="settings">Settings</button><button data-act="help">Help</button>
         <button data-act="restart">Start again</button>
         <button data-act="leave">${PB.aid("resume") ? "Leave: resume it later" : "Abandon the game"}</button></div>
-        <div class="note keys legend">${(PB.aid("direct") ? [["Arrows", "fly that way"], ["Shift", "brake"]] : [["← →", "turn"], ["↑", "forward"], ["↓", "brake"]]).concat([["Space", "gun"], ["B", "bomb"], ["Tab", "chart"], ["L", "aids"]]).map(([k, w]) => `<span class="k">${k.split(" ").map(x => `<kbd>${x}</kbd>`).join(" ")}</span><span>${w}</span>`).join("")}</div>`,
+        <div class="note keys legend">${(PB.modern() ? [["Arrows", "fly that way"], ["Shift", "brake"]] : [["← →", "turn"], ["↑", "forward"], ["↓", "brake"]]).concat([["Space", "gun"], ["B", "bomb"], ["Tab", "chart"], ["L", "aids"]]).map(([k, w]) => `<span class="k">${k.split(" ").map(x => `<kbd>${x}</kbd>`).join(" ")}</span><span>${w}</span>`).join("")}</div>`,
       onClick: async b => {
         const a = b.dataset.act;
         if (a === "resume") UI.close();
@@ -219,9 +219,12 @@
     const line = (n, note, ctl) => `<tr><td><b>${esc(n)}</b><br><span class="note">${note}</span></td><td class="act">${ctl}</td></tr>`;
     UI.open("Settings", { wide: true,
       html: () => { const changed = Object.keys(PB.prefs.over).length, adj = changed ? ", adjusted" : ""; return `
+        <h3>Controls</h3>
+        <div class="row">${Object.entries(PB.STEER).map(([k, n]) => pill(PB.prefs.steer === k, n, "steer:" + k)).join("")}</div>
+        <p class="note">${PB.modern() ? "<b>Modern</b>: the helicopter flies the way the arrows or the stick point, eight ways; <kbd>Shift</kbd> or a bumper brakes." : "<b>Classic</b>, as 1984 flew: <kbd>←</kbd> <kbd>→</kbd> turn the helicopter, <kbd>↑</kbd> flies forward, <kbd>↓</kbd> brakes and backs off."}</p>
         <h3>Aids</h3>
         <div class="row">${pill(PB.prefs.aids === "classic", "Classic" + (PB.prefs.aids === "classic" ? adj : ""), "aids:classic")}${pill(PB.prefs.aids === "field", "Field" + (PB.prefs.aids === "field" ? adj : ""), "aids:field")}</div>
-        <p class="note">Classic flies as 1984 did: turn and thrust, the gauges, and your eyes. Field adds the helps below. <kbd>L</kbd> switches between them in the air.</p>
+        <p class="note">Classic flies as 1984 did: the gauges and your eyes. Field adds the helps below. <kbd>L</kbd> switches between them in the air.</p>
         <details class="aid-list"${UI.aidOpen ? " open" : ""}><summary>Set each aid on its own${changed ? ` (${changed} changed)` : ""}</summary>
         <table class="aids">${PB.AID_LIST.map(([k, n, note]) => `<tr><td><b>${esc(n)}</b><br><span class="note">${esc(note)}</span></td><td class="act">${sw(k, n)}</td></tr>`).join("")}</table></details>
         <h3>Look</h3>
@@ -244,6 +247,7 @@
         const [k, a] = v.split(":");
         if (k === "aids") PB.setAids(a);
         else if (k === "aidt") PB.setAid(a, !PB.aid(a));
+        else if (k === "steer") { PB.prefs.steer = a; PB.savePrefs(); }
         else if (k === "scan") { PB.prefs.scanlines = !PB.prefs.scanlines; PB.savePrefs(); PB.game.applyLook(); }
         else if (k === "shake") { PB.prefs.shake = !PB.prefs.shake; PB.savePrefs(); }
         else if (k === "mute") PB.game.toggleMute();
@@ -290,7 +294,7 @@
       <p class="gk-credit">${CREDIT}</p>`],
     ["Keys", `<table class="keys">
       <tr><td>Fly (Classic)</td><td><kbd>←</kbd> <kbd>→</kbd> turn, <kbd>↑</kbd> forward, <kbd>↓</kbd> brake and back off; or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td></tr>
-      <tr><td>Fly (Direct)</td><td>the arrows point the way to fly, eight ways; <kbd>Shift</kbd> brakes</td></tr>
+      <tr><td>Fly (Modern)</td><td>the arrows point the way to fly, eight ways; <kbd>Shift</kbd> brakes. Choose it under Controls in Settings</td></tr>
       <tr><td>Gun</td><td><kbd>Space</kbd> or <kbd>J</kbd>, held: it fires where the nose points</td></tr>
       <tr><td>Bomb</td><td><kbd>B</kbd>, <kbd>X</kbd> or <kbd>K</kbd>; hold it for a stick of bombs</td></tr>
       <tr><td>Land</td><td>slow down over the carrier's deck and let go: it settles on its own</td></tr>
@@ -305,9 +309,10 @@
     ["The enemy", enemy()],
     ["Factories", `<table>${PB.C.KIND_ORDER.map(k => `<tr><td>${glyph(k)}</td><td><b>${esc(C.KINDS[k].name)}</b></td><td>${esc(C.KINDS[k].what)}</td></tr>`).join("")}</table>
       <p>In the corner, each factory shows a square for each of its four buildings still standing, and its level: how far along its line is, from 0 to 9. A factory you have destroyed stays destroyed for the round, and its line stops where it was.</p>`],
-    ["Classic and Field", `<p><b>Classic</b> flies as the 1984 game did: turn and thrust, the gauges in the corner, and nothing else. A game is played through.</p>
-      <p><b>Field</b>, the default, adds the chart of the bay in the corner, arrows at the screen's edge toward the nearest factory, the carrier, the battleship and enemy aircraft, the bomb sight, the landing guide, Direct steering, and leaving a game to come back to it.</p>
-      <p>Settings has each on its own. <kbd>L</kbd> switches between the two sets in the air.</p>`],
+    ["Classic and Field", `<p><b>Classic</b> flies as the 1984 game did: the gauges in the corner, and nothing else. A game is played through.</p>
+      <p><b>Field</b>, the default, adds the chart of the bay in the corner, arrows at the screen's edge toward the nearest factory, the carrier, the battleship and enemy aircraft, the bomb sight, the landing guide, and leaving a game to come back to it.</p>
+      <p>Settings has each on its own. <kbd>L</kbd> switches between the two sets in the air.</p>
+      <p>Steering is its own setting, under Controls: <b>Classic</b>, the default, turns and thrusts as 1984 did; <b>Modern</b> flies the way the stick points. The aids leave it alone.</p>`],
   ];
   UI.help = (tab = 0, after) => UI.open("Help", { wide: true, tab, tabs: UI.helpTabs(), onClose: after });
   UI.aboutHTML = () => `<p><b>Raid on Puma Bay</b> is a remake of <i>Raid on Bungeling Bay</i> (Broderbund, 1984) for the Commodore 64: a helicopter off a carrier against an empire's factories, its fighters and flak, and the battleship it is building in secret.</p>

@@ -6,7 +6,7 @@
  * nine bombs again. Lift off by pushing forward. A bomb falls for a moment
  * after it leaves, carried on by the helicopter's way, so it lands ahead.
  *
- * Direct steering (a Field aid) points the helicopter where the stick
+ * Modern steering (a setting) points the helicopter where the stick
  * points instead: the engine turns it that way and flies. */
 "use strict";
 (() => {
