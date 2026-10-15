@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>og.png</title>
+<!-- The share card (og.png, 1200x630), laid out as the family's are (a cyan
+     rule, the wordmark with "Puma" in cyan, the description, a tagline, the
+     icon top right; the words are the owner's, 2026-10-15) over a scene drawn by the game's own renderer at three
+     times: the steel mill under attack, one building down and one burning,
+     the puma's helicopter over it and two wolf fighters coming in. Serve the
+     repo over http, open tools/og.html, and save the canvas (window.ogPNG()
+     is its data URL), or screenshot it headless at 1200x630:
+       msedge --headless --hide-scrollbars --window-size=1200,630
+              --screenshot=og.png http://127.0.0.1:8767/tools/og.html
+     iconArt() composes the icon's drawing and prints it for
+     tools/make-icons.js. Not deployed. -->
+<style>body{margin:0;background:#222;overflow:hidden}canvas{display:block}</style>
+</head>
+<body>
+<canvas id="og" width="1200" height="630"></canvas>
+<script>
+/* the game's scripts, fresh each time: these pages are not stamped as index.html is */
+const SRC = ["../js/util.js", "../js/engine/const.js", "../js/engine/map.js", "../js/engine/heli.js", "../js/engine/enemy.js", "../js/engine/world.js", "../js/art/kit.js", "../js/art/sprites.js", "../js/art/structures.js", "../js/art/fx.js", "../js/art/terrain.js", "../js/render.js"];
+(function next(i) { if (i === SRC.length) return main(); const e = document.createElement("script"); e.src = SRC[i] + "?t=" + Date.now(); e.onload = () => next(i + 1); document.head.appendChild(e); })(0);
+</script>
+<script>
+function main() {
+"use strict";
+(() => {
+  const K = PB.K, E = PB.Engine, R = PB.Render, FX = PB.FX;
+  PB.Terrain.build();
+  /* the scene, 400 x 210, in the play screen's pixels */
+  const W = 400, H = 210, sc = K.mk(W, H);
+  K.VW = W; K.VH = H;
+  const S = E.newGame({ diff: 1, seed: 5 }), mf = PB.MAP.factories[0];
+  S.factories[0].hp = [0, 2, 1, 2];
+  Object.assign(S.heli, { x: mf.x + 58, y: mf.y + 30, vx: -0.6, vy: -0.4, a: -1.1, state: "fly", alt: 1, away: true, bombs: 5 });
+  S.fighters.push({ x: mf.x + 150, y: mf.y + 46, a: -1.75, v: 2.6, hp: 2, st: "fight", t: 200, alt: 2 }, { x: mf.x + 176, y: mf.y + 70, a: -1.45, v: 2.6, hp: 2, st: "fight", t: 200, alt: 2 });
+  S.craters.push({ x: mf.x - 40, y: mf.y + 38, r: 10, t: 0 }, { x: mf.x + 12, y: mf.y + 52, r: 9, t: 0 });
+  R.init(sc);
+  R.cx = mf.x - 62; R.cy = mf.y + 4; R.cam.x = R.cx - W / 2; R.cam.y = R.cy - H / 2;
+  FX.explode(mf.sections[2].x + 16, mf.sections[2].y + 14, 20);
+  FX.flak(mf.x + 90, mf.y + 10, 12); FX.flak(mf.x + 40, mf.y - 60, 12);
+  for (let i = 0; i < 40; i++) { FX.smoke(mf.sections[2].x + 12 + (i % 5), mf.sections[2].y + 8, 4, true, 0); if (i % 4 === 0) FX.smoke(mf.stacks[0].x, mf.stacks[0].y, 4); FX.step(); }
+  FX.explode(mf.sections[0].x + 18, mf.sections[0].y + 16, 22, {});
+  for (let i = 0; i < 5; i++) FX.step();
+  R.frame = 40; R.rotor = 0.9;
+  R.draw(S, { aids: { reticle: true } });
+  const cv = document.getElementById("og"), g = cv.getContext("2d");
+  g.imageSmoothingEnabled = false;
+  g.drawImage(sc, 0, 0, 1200, 630);
+  /* a shade under the words, from the left */
+  const sh = g.createLinearGradient(0, 0, 660, 0);
+  sh.addColorStop(0, "rgba(5,7,15,.96)"); sh.addColorStop(0.6, "rgba(5,7,15,.82)"); sh.addColorStop(1, "rgba(5,7,15,0)");
+  g.fillStyle = sh; g.fillRect(0, 0, 660, 630);
+  g.fillStyle = "#54f2ff"; g.fillRect(0, 0, 1200, 8);
+  const mono = 'Menlo, Consolas, "DejaVu Sans Mono", "Courier New", monospace';
+  g.textBaseline = "alphabetic";
+  g.font = `bold 76px ${mono}`;
+  g.fillStyle = "#e9e9f2"; g.fillText("Raid on", 72, 140);
+  g.fillStyle = "#54f2ff"; g.fillText("Puma", 72, 222);
+  g.fillStyle = "#e9e9f2"; g.fillText("Bay", 72 + g.measureText("Puma ").width, 222);
+  /* the description, wrapped to the shade */
+  g.font = `28px ${mono}`; g.fillStyle = "#b4bac6";
+  const words = "Use an advanced attack helicopter to stage a raid and take out the factories before the battleship finished building.".split(" "), lines = [""];
+  for (const w of words) { const t = lines[lines.length - 1] ? lines[lines.length - 1] + " " + w : w; if (g.measureText(t).width > 520) lines.push(w); else lines[lines.length - 1] = t; }
+  lines.forEach((l, i) => g.fillText(l, 72, 292 + i * 40));
+  g.font = `24px ${mono}`; g.fillStyle = "#54f2ff";
+  g.fillText("Relive the excitement of Raid On Bungeling Bay", 72, 566);
+  const img = new Image();
+  img.onload = () => { g.drawImage(img, 1010, 40, 130, 130); window.ogReady = true; document.title = "ready"; };
+  img.src = "../icon.svg?" + Date.now();
+  window.ogPNG = () => cv.toDataURL("image/png");
+})();
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Raid on Puma Bay: sprite sheet</title>
+<!-- Every sprite in the game at four times, at eight headings, on water and
+     on land, for drawing them. Serve the repo over http and open
+     tools/preview.html. Not deployed. -->
+<style>
+body{margin:0;padding:16px;background:#1b2330;color:#ccd;font:13px system-ui}
+canvas{image-rendering:pixelated;display:block;margin:8px 0 18px}
+h2{font-size:13px;margin:12px 0 0;color:#9ab}
+</style>
+</head>
+<body>
+<div id="out"></div>
+<script>
+/* the game's scripts, fresh each time: these pages are not stamped as index.html is */
+const SRC = ["../js/util.js", "../js/engine/const.js", "../js/engine/map.js", "../js/engine/heli.js", "../js/art/kit.js", "../js/art/sprites.js", "../js/art/structures.js", "../js/art/fx.js", "../js/art/terrain.js"];
+(function next(i) { if (i === SRC.length) return main(); const e = document.createElement("script"); e.src = SRC[i] + "?t=" + Date.now(); e.onload = () => next(i + 1); document.head.appendChild(e); })(0);
+</script>
+<script>
+function main() {
+"use strict";
+const K = PB.K, out = document.getElementById("out"), Z = 4;
+function row(title, items, bg = "#2a6f8e") {
+  const h = document.createElement("h2"); h.textContent = title; out.appendChild(h);
+  const W = items.reduce((s, c) => s + c.width + 6, 6), H = Math.max(...items.map(c => c.height)) + 12;
+  const cv = K.mk(W, H), g = cv.getContext("2d");
+  g.fillStyle = bg; g.fillRect(0, 0, W, H);
+  let x = 6;
+  for (const c of items) { g.drawImage(c, x, 6); x += c.width + 6; }
+  cv.style.width = W * Z + "px"; cv.style.height = H * Z + "px";
+  out.appendChild(cv);
+}
+const heads = n => Array.from({ length: n }, (_, i) => i / n * Math.PI * 2);
+for (const name of ["heli", "spare", "fighter", "bomber", "tank", "turret", "flak", "dish", "cargo", "gunboat"]) row(name, heads(8).map(a => K.spr(name, a)));
+row("battleship stages", [1, 2, 3, 4].map(s => K.spr("ship" + s, Math.PI)).concat([K.spr("wreck", Math.PI)]));
+row("carrier", heads(4).map(a => K.spr("carrier", a)));
+{
+  const t0 = performance.now(); PB.Terrain.build(); const ms = Math.round(performance.now() - t0);
+  const h = document.createElement("h2"); h.textContent = "terrain, built in " + ms + " ms"; out.prepend(h);
+  for (const [n, x, y] of [["steel", 26, 34], ["yard", 101, 121], ["field", 105, 59], ["tanks", 72, 77]]) {
+    const v = K.mk(K.VW, K.VH), g = v.getContext("2d");
+    PB.Terrain.draw(g, x * 16 - K.VW / 2, y * 16 - K.VH / 2);
+    PB.Terrain.animate(g, x * 16 - K.VW / 2, y * 16 - K.VH / 2, 40, wx => wx - (x * 16 - K.VW / 2), wy => wy - (y * 16 - K.VH / 2));
+    v.style.width = K.VW * 2 + "px"; v.style.height = K.VH * 2 + "px";
+    const hh = document.createElement("h2"); hh.textContent = n; h.after(hh); hh.after(v);
+  }
+  const mm = PB.Terrain.map; mm.style.width = "640px"; h.after(mm);
+}
+if (PB.ART && PB.ART.sheet) for (const [t, items, bg] of PB.ART.sheet()) row(t, items, bg);
+}
+</script>
+</body>
+</html>

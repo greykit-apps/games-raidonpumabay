@@ -1,0 +1,14 @@
+{
+  "name": "Raid on Puma Bay",
+  "short_name": "Puma Bay",
+  "description": "Six factories, one secret battleship, and nine bombs at a time. A puma flies a helicopter off a carrier against the Wolf Empire: a remake of Raid on Bungeling Bay, the 1984 Commodore 64 classic.",
+  "start_url": ".",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#05070f",
+  "theme_color": "#05070f",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" },
+    { "src": "apple-touch-icon.png", "sizes": "180x180", "type": "image/png" }
+  ]
+}

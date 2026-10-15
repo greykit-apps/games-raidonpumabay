@@ -1,0 +1,9 @@
+.claude/
+.DS_Store
+# the original Raid on Bungeling Bay disk, kept beside the repo for reference only -- never commit it
+*.D64
+*.d64
+*.zip
+reference/
+# design-review snapshots, local only
+.impeccable/
