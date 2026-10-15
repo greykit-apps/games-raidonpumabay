@@ -9,7 +9,7 @@
 "use strict";
 (() => {
   const E = PB.Engine, C = PB.C, K = PB.K, UI = PB.UI, R = PB.Render, HUD = PB.HUD, SFX = PB.SFX, esc = PB.esc, $ = id => document.getElementById(id);
-  const game = PB.game = { mode: "boot", S: null, demo: null, bot: null, ui: { mapView: false, aids: {} }, step: 20, acc: 0, last: 0, warned: 0, hintUntil: 0 };
+  const game = PB.game = { mode: "boot", S: null, demo: null, bot: null, ui: { mapView: false, aids: {} }, step: 20, acc: 0, last: 0, warned: 0, hintUntil: 0, teach: null, goalAt: 0 };
 
   /* ---- sound on and off (STANDARD.md §8) ---- */
   const readMuted = () => { try { return globalThis.localStorage.getItem(PB.KEY_MUTED) === "1"; } catch (e) { return false; } };
@@ -56,7 +56,7 @@
       <canvas class="pb-scene" aria-hidden="true"></canvas><div class="pb-shade" aria-hidden="true"></div>
       <main>
         <h1 class="pb-mark" aria-label="${esc(cfg.name)}"><span class="raid">Raid on</span><span><span class="puma">Puma</span> Bay</span></h1>
-        <p class="pb-sub">Six factories · one battleship · nine bombs at a time</p>
+        <p class="pb-sub"><span>Six factories ·</span> <span>one battleship ·</span> <span>nine bombs at a time</span></p>
         <nav class="pb-menu" aria-label="Main menu">${main.map(it => btn(it, true)).join("")}<div class="util">${util.map(it => btn(it, false)).join("")}</div></nav>
       </main>
       <footer class="pb-foot"><span class="gk-credit">${UI.CREDIT}</span></footer>
@@ -117,6 +117,12 @@
     if (k === "Enter" || k === " " || k === "Tab" || k === "Shift") return;
     const menu = document.querySelector("#title .pb-menu"), hit = menu && titleKeyButton(menu, k);
     if (hit) { ev.preventDefault(); titleAct(hit.dataset.act); return; }
+    /* the row of Settings, Help and About walks left and right as well */
+    const row = (k === "ArrowLeft" || k === "ArrowRight") && document.activeElement && document.activeElement.closest(".pb-menu .util");
+    if (row) {
+      const bs = [...row.querySelectorAll("button")], i = bs.indexOf(document.activeElement);
+      ev.preventDefault(); bs[(i + (k === "ArrowRight" ? 1 : -1) + bs.length) % bs.length].focus(); return;
+    }
     if (menu) titleArrow(menu, ev);
   }
 
@@ -137,14 +143,38 @@
     R.init($("screen"));
     R.snap(S);
     game.acc = 0;
+    game.teach = null; game.goalAt = 0;
     if (fresh) {
-      game.hintUntil = performance.now() + 14000;
-      HUD.hint(keysHint());
+      /* a first game keeps the keys up until the first bomb and the first landing; after that, fourteen seconds */
+      if (PB.prefs.learned) { game.hintUntil = performance.now() + 14000; HUD.hint(keysHint()); }
+      else { game.hintUntil = 0; game.teach = { bombed: false, landed: false }; }
       HUD.toast(`Round ${S.round}: six factories to go`, "", 3000);
+      game.goalAt = performance.now() + 3200;
     } else HUD.toast(`Round ${S.round}, back in the air`, "", 2000);
   }
+  const SEP = " <span class=\"sep\"></span> ";
   const keysHint = () => (PB.aid("direct") ? "<kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> fly that way" : "<kbd>←</kbd><kbd>→</kbd> turn <kbd>↑</kbd> fly") +
-    " <span class=\"sep\"></span> <kbd>Space</kbd> gun <span class=\"sep\"></span> <kbd>B</kbd> bomb <span class=\"sep\"></span> slow down over the deck to land";
+    SEP + "<kbd>Space</kbd> gun" + SEP + "<kbd>B</kbd> bomb" + SEP + "slow down over the deck to land";
+  const landHint = () => "Back to the carrier for bombs and repairs" + SEP + (PB.aid("direct") ? "<kbd>Shift</kbd>" : "<kbd>↓</kbd>") + " slow down over the deck to land";
+  /* the first game's key strip: the keys until a bomb is away, then landing when it is needed */
+  function teachHint(S) {
+    const t = game.teach, h = S.heli;
+    if (!t) return;
+    if (!t.bombed) HUD.hint(keysHint());
+    else if (h.state === "fly" && (h.bombs <= 3 || h.dmg >= 40)) HUD.hint(landHint());
+    else HUD.hint(null);
+  }
+  /* which way the work is: the nearest factory still standing, told by the compass */
+  const COMPASS = ["east", "south-east", "south", "south-west", "west", "north-west", "north", "north-east"];
+  function goalToast(S) {
+    if (!PB.aid("arrows")) return;
+    const h = S.heli, m = PB.MAP;
+    let best = null, bd = Infinity;
+    for (const f of S.factories) { if (f.dead) continue; const mf = m.factories[f.id], d = PB.dist(h.x, h.y, mf.x, mf.y); if (d < bd) { bd = d; best = { f, mf }; } }
+    if (!best) return;
+    const i = Math.round(Math.atan2(PB.wd(h.y, best.mf.y), PB.wd(h.x, best.mf.x)) / (Math.PI / 4));
+    HUD.toast(`Nearest factory: the ${KIND(best.f.kind)}, to the ${COMPASS[(i + 8) % 8]}`, "", 3600);
+  }
   function resume() {
     const g = PB.loadGame();
     if (!g) return;
@@ -155,6 +185,7 @@
   game.pause = () => { if (game.mode !== "play" || UI.sheet) return; PB.Input.clear(); checkpoint(); UI.pause(); };
   game.unpause = () => { game.acc = 0; game.last = performance.now(); };
   game.leave = () => { checkpoint(true); game.toTitle(); };
+  game.restart = () => { const S = game.S; if (!S) return; PB.clearGame(); game.start(S.diff); };
   game.abandon = () => { const S = game.S; if (!S) return; S.phase = "over"; S.end = { why: "abandon" }; PB.clearGame(); finish(); };
   game.nextRound = leave => {
     const S = game.S; if (!S) return;
@@ -163,6 +194,7 @@
     if (leave) { checkpoint(true); game.toTitle(); return; }
     R.snap(S); PB.FX.clear();
     HUD.toast(`Round ${S.round}: the factories are rebuilt`, "amber", 3200);
+    game.goalAt = performance.now() + 3400;
     game.acc = 0; game.last = performance.now();
     checkpoint();
   };
@@ -190,7 +222,7 @@
       switch (e.t) {
         case "gun": SFX.play("gun"); break;
         case "eGun": SFX.play("eGun", at(e)); break;
-        case "bombDrop": SFX.play("bombDrop"); break;
+        case "bombDrop": SFX.play("bombDrop"); if (game.teach) game.teach.bombed = true; break;
         case "noBombs": SFX.play("noBombs"); toast("No bombs left: back to the carrier", "amber"); break;
         case "boom": SFX.play("boom", at(e)); break;
         case "splash": SFX.play("splash", at(e)); break;
@@ -207,7 +239,8 @@
           if (h.dmg >= 60 && game.warned < 1) { game.warned = 1; toast("Heavy damage: get back to the carrier", "amber", 3200); }
           if (h.dmg >= 80 && game.warned < 2) { game.warned = 2; SFX.play("warn"); toast("She won't take much more", "red", 2600); }
           break;
-        case "landed": SFX.play("landed"); game.warned = 0; if (e.dmg > 0 || e.bombs < C.HELI.bombs) toast("On deck: repairs and bombs", "green", 2000); break;
+        case "landed": SFX.play("landed"); game.warned = 0;
+          if (game.teach && game.teach.bombed) { game.teach = null; HUD.hint(null); PB.prefs.learned = true; PB.savePrefs(); } if (e.dmg > 0 || e.bombs < C.HELI.bombs) toast("On deck: repairs and bombs", "green", 2000); break;
         case "reload": SFX.play("reload"); break;
         case "repaired": SFX.play("repaired"); break;
         case "takeoff": if (performance.now() > game.hintUntil) HUD.hint(null); break;
@@ -219,7 +252,7 @@
         case "carrierHit": SFX.play("boom", at(e)); if (e.hp < 35 && e.hp > 0) toast(`The carrier is badly hit: ${Math.ceil(e.hp)}%`, "red"); break;
         case "carrierSunk": SFX.play("bigBoom"); toast("The carrier is sunk", "red", 4000); break;
         case "sectionDown": SFX.play("bigBoom", at(e)); break;
-        case "factoryDown": SFX.play("factory"); toast(e.left ? `${KIND(e.kind)} destroyed: ${e.left} to go` : `${KIND(e.kind)} destroyed: that's all six`, "green", 3200); break;
+        case "factoryDown": SFX.play("factory"); toast(e.left ? `${KIND(e.kind)} destroyed: ${e.left} to go` : `${KIND(e.kind)} destroyed: that's all six`, "green", 3200); if (e.left) game.goalAt = performance.now() + 3400; break;
         case "rebuilt": break;
         case "levelUp":
           if (e.kind === "radio" && e.lv === 4) toast("Their fighters now carry homing missiles", "amber", 3200);
@@ -227,8 +260,8 @@
           break;
         case "hangarDown": toast(e.left ? "A hangar is down" : "The airfield is out of action", "green"); break;
         case "hangarBack": toast("A hangar is back in service", "amber"); break;
-        case "delivered": break;
-        case "yardHit": toast(`The battleship's work set back: ${Math.floor(e.p * 100)}%`, "green", 1800); break;
+        case "delivered": HUD.pulse("tick"); break;
+        case "yardHit": HUD.pulse("set"); toast(`The battleship's work set back: ${Math.floor(e.p * 100)}%`, "green", 1800); break;
         case "shipQuarter": toast("The battleship is a quarter built", "amber", 3000); break;
         case "shipHalf": SFX.play("shipWarn"); toast("The battleship is half built", "amber", 3200); break;
         case "shipThree": SFX.play("shipWarn"); toast("The battleship is three-quarters built", "red", 3200); break;
@@ -239,7 +272,7 @@
         case "heliDown": SFX.play("kill"); toast("Going down!", "red", 2000); break;
         case "heliCrash": SFX.play(e.water ? "splash" : "boom"); break;
         case "newHeli": SFX.play("newHeli"); toast(e.left ? `A new helicopter on deck: ${e.left} left in reserve` : "The last helicopter is on deck", e.left ? "" : "amber", 3200); break;
-        case "roundWon": SFX.play("won"); HUD.end(`Round ${e.round} won`, "All six factories are down", "ok"); break;
+        case "roundWon": SFX.play("won"); game.goalAt = 0; HUD.won(S, e.round); break;
         case "roundReport": HUD.end(null); checkpoint(); UI.report(S); break;
         case "lastHeli": SFX.play("over"); HUD.end("The raid is over", e.why === "carrier" ? "No carrier, and no helicopter in the air" : "No helicopters left", "danger"); break;
         case "gameOver": HUD.end(null); finish(); break;
@@ -275,6 +308,7 @@
     if (game.mode === "play") {
       const fresh = PB.Input.pollPad();
       if (!UI.sheet) {
+        for (const a of fresh) konamiStep("pad", a);
         if (fresh.includes("pause")) { game.pause(); return; }
         if (fresh.includes("map")) toggleMap();
       }
@@ -289,6 +323,8 @@
       R.alpha = UI.sheet || game.ui.mapView ? 0 : PB.clamp(game.acc / game.step, 0, 1);
       loops(S);
       if (game.hintUntil && now > game.hintUntil && S.heli.state !== "deck") { HUD.hint(null); game.hintUntil = 0; }
+      if (game.teach && S.phase === "play") teachHint(S);
+      if (game.goalAt && now > game.goalAt && !UI.sheet && !game.ui.mapView) { game.goalAt = 0; if (S.phase === "play") goalToast(S); }
     }
     if (!UI.sheet) R.follow(S, dt);
     if (!PB.prefs.shake) R.shake = 0;
@@ -328,6 +364,23 @@
     if (!game.ui.mapView) game.acc = 0;
   }
 
+  /* ---- the Konami code: up up down down left right left right B A, on the
+     keys or on a pad's buttons (B is the bomb, A the gun) ---- */
+  const KONAMI = { keys: ["ArrowUp", "ArrowUp", "ArrowDown", "ArrowDown", "ArrowLeft", "ArrowRight", "ArrowLeft", "ArrowRight", "KeyB", "KeyA"],
+    pad: ["up", "up", "down", "down", "left", "right", "left", "right", "bomb", "fire"] };
+  const konamiAt = { keys: 0, pad: 0 };
+  function konamiStep(src, x) {
+    const seq = KONAMI[src], i = konamiAt[src];
+    /* a wrong press starts it over; a third up still leaves two in hand */
+    konamiAt[src] = x === seq[i] ? i + 1 : x === seq[0] ? (i === 2 ? 2 : 1) : 0;
+    if (konamiAt[src] < seq.length) return;
+    konamiAt.keys = konamiAt.pad = 0;
+    if (!game.S || !E.konami(game.S)) return;
+    game.warned = 0;
+    SFX.play("repaired");
+    toast("Konami code: bombs and armour without end, for the rest of this round", "green", 4000);
+  }
+
   /* ---- keys ---- */
   document.addEventListener("keydown", ev => {
     SFX.unlock();
@@ -340,6 +393,7 @@
     if (game.mode !== "play") return;
     const a = PB.Input.actionFor(ev.code);
     if (a) ev.preventDefault();
+    if (!ev.repeat) konamiStep("keys", ev.code);
     if (game.ui.mapView) { if (a === "map" || a === "pause") toggleMap(); return; }
     if (a === "pause") { game.pause(); return; }
     if (a === "map") { toggleMap(); return; }

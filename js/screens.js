@@ -4,7 +4,7 @@
  * Settings, Help and About from the title. */
 "use strict";
 (() => {
-  const esc = PB.esc, C = PB.C, ART = PB.ART;
+  const esc = PB.esc, C = PB.C, ART = PB.ART, K = PB.K;
   const UI = PB.UI = { sheet: null, aidOpen: false };
   const CREDIT = UI.CREDIT = 'Built by <a href="https://greykit.com/" target="_blank" rel="noopener">greykit.com</a>';
   const ICON_BACK = '<svg class="ic" viewBox="0 0 12 12" width="12" height="12" aria-hidden="true"><path d="M7.5 2 L3.5 6 L7.5 10" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="square"/></svg>';
@@ -15,7 +15,7 @@
   UI.open = (title, { tabs, html, onClick, onClose, onKey, back, tab = 0, wide = false, closable = true, popup = false }) => {
     UI.close(true);
     const el = document.createElement("div");
-    el.className = "pb-sheet " + (popup ? "pb-pop" : "full") + (wide ? " wide" : "");
+    el.className = "pb-sheet " + (popup ? "pb-pop" : "full") + (wide ? " wide" : "") + (tabs ? " tabbed" : "");
     el.setAttribute("role", "dialog"); el.setAttribute("aria-modal", "true"); el.setAttribute("aria-label", title);
     const draw = () => {
       el.innerHTML = '<div class="' + (popup ? "pb-win" : "sh-box") + '"><header class="sh-head">' + (back ? '<button data-back title="Back (Esc)">' + ICON_BACK + "Back</button>" : "") + "<h2>" + esc(title) + "</h2>" +
@@ -108,7 +108,7 @@
     UI.open("New game", { back: () => PB.game.toTitle(),
       html: () => `<p class="lede">The Wolf Empire has six factories on the islands of Puma Bay, and a battleship building in a secret yard. You have a carrier, a helicopter, and nine bombs at a time.</p>
         <div class="diffs">${C.DIFF.map((d, i) => `<button data-d="${i}" class="${i === last ? "primary" : ""}"${i === last ? " autofocus" : ""}><b><kbd>${i + 1}</kbd>${esc(d.name)}</b><span>${esc(d.note)}</span></button>`).join("")}</div>
-        <p class="note">Aids: <b>${esc(PB.aidsLabel())}</b>. Change them in Settings, or with <kbd>L</kbd> in the air.</p>`,
+        <p class="note">${PB.prefs.aids === "field" ? "Aids: <b>Field</b>, the modern helps: a chart of the bay in the corner, arrows toward the nearest factory and the carrier, a bomb sight and a landing guide." : "Aids: <b>Classic</b>, as 1984 flew: turn and thrust, the gauges, and your eyes."}${Object.keys(PB.prefs.over).length ? " Adjusted in Settings." : ""} Change them in Settings, or with <kbd>L</kbd> in the air.</p>`,
       onKey: ev => { const n = +ev.key; if (n >= 1 && n <= 3) { ev.preventDefault(); go(n - 1); return true; } return false; },
       onClick: b => { if (b.dataset.d !== undefined) go(+b.dataset.d); },
     });
@@ -124,14 +124,16 @@
         <div class="col"><button data-act="resume" class="primary">Resume</button>
         <button data-act="map">Chart of the bay <kbd>Tab</kbd></button>
         <button data-act="settings">Settings</button><button data-act="help">Help</button>
+        <button data-act="restart">Start again</button>
         <button data-act="leave">${PB.aid("resume") ? "Leave: resume it later" : "Abandon the game"}</button></div>
-        <p class="note keys">${(PB.aid("direct") ? [["Arrows", "fly that way"], ["Shift", "brake"]] : [["← →", "turn"], ["↑", "forward"], ["↓", "brake"]]).concat([["Space", "gun"], ["B", "bomb"], ["Tab", "chart"], ["L", "aids"]]).map(([k, w]) => `<span><kbd>${k}</kbd> ${w}</span>`).join(" · ")}</p>`,
+        <div class="note keys legend">${(PB.aid("direct") ? [["Arrows", "fly that way"], ["Shift", "brake"]] : [["← →", "turn"], ["↑", "forward"], ["↓", "brake"]]).concat([["Space", "gun"], ["B", "bomb"], ["Tab", "chart"], ["L", "aids"]]).map(([k, w]) => `<span class="k">${k.split(" ").map(x => `<kbd>${x}</kbd>`).join(" ")}</span><span>${w}</span>`).join("")}</div>`,
       onClick: async b => {
         const a = b.dataset.act;
         if (a === "resume") UI.close();
         if (a === "map") { UI.close(); PB.game.openMap(); }
         if (a === "settings") { UI.close(true); UI.settings(() => UI.pause()); }
         if (a === "help") { UI.close(true); UI.help(0, () => UI.pause()); }
+        if (a === "restart" && await UI.ask(`Start a new game on ${S.D.name}? This one ends here, and its score is not kept.`, "Start again")) { UI.close(true); PB.game.restart(); }
         if (a === "leave") {
           if (PB.aid("resume")) { UI.close(true); PB.game.leave(); return; }
           if (await UI.ask("Abandon this game? Its score still counts for the high scores.", "Abandon")) { UI.close(true); PB.game.abandon(); }
@@ -167,16 +169,20 @@
   /* ---- the end ---- */
   const WHY = { helis: "The last helicopter is down.", carrier: "The carrier is sunk, and there is no deck to come back to.", abandon: "Abandoned." };
   UI.gameOver = S => {
-    const rank = C.rankFor(S.score), can = PB.qualifies(S.score);
+    const rank = C.rankFor(S.score), next = C.RANKS.find(([at]) => at > S.score), can = PB.qualifies(S.score);
+    const pos = PB.scores().filter(e => e.score >= S.score).length, abandoned = S.end && S.end.why === "abandon";
+    const place = can ? (pos === 0 ? "A new best score" : `Number ${pos + 1} on the table`) : "";
     let placed = -1, naming = can;
-    UI.open("The raid is over", { wide: true, closable: false,
-      html: () => `<div class="report">
-        <div><h3 class="mname big ${S.end && S.end.why === "abandon" ? "dim" : "danger"}">${num(S.score)} points</h3>
+    /* the left half is the same before the name and after it: the score, why it ended, the rank, the tally */
+    const left = () => `<div><h3 class="mname big${abandoned ? " dim" : ""}">${num(S.score)} points</h3>
         <p class="meta">${esc(WHY[S.end ? S.end.why : "helis"])} Round ${S.round} · ${esc(S.D.name)}</p>
-        <p class="rank">Rated <b>${esc(rank)}</b></p>${tally(S.stats)}</div>
-        <div>${naming ? `<h3>A high score</h3><p>Your name for the table:</p><div class="row"><label class="sr" for="pb-name">Your name</label><input id="pb-name" maxlength="14" value="${esc(PB.lastName())}" placeholder="Name" autocomplete="off" autofocus><button data-act="save" class="primary">Save</button><button data-act="skip">Skip</button></div>` :
+        <p class="rank">Rated <b>${esc(rank)}</b></p>${next ? `<p class="note nextrank">Next: ${esc(next[1])}, at ${num(next[0])} points</p>` : ""}${tally(S.stats)}</div>`;
+    const ends = `<div class="row end"><button data-act="again" class="primary">Fly again</button><button data-act="title">Title</button></div>`;
+    UI.open("The raid is over", { wide: true, closable: false,
+      html: () => `<div class="report">${left()}
+        <div>${naming ? `<p class="placed">${place}</p><p>Your name for the table:</p><div class="row"><label class="sr" for="pb-name">Your name</label><input id="pb-name" maxlength="14" value="${esc(PB.lastName())}" placeholder="Puma" autocomplete="off" autofocus><button data-act="save" class="primary">Save</button><button data-act="skip">Skip</button></div><p class="note">Left blank, it is saved as Puma.</p>` :
           `<h3>High scores</h3>${scoresTable(PB.scores(), placed)}`}</div></div>
-        ${naming ? "" : `<div class="row end"><button data-act="again" class="primary">Fly again</button><button data-act="title">Title</button></div>`}`,
+        ${naming ? "" : ends}`,
       onKey: ev => { if (naming && ev.key === "Enter" && document.activeElement && document.activeElement.id === "pb-name") { ev.preventDefault(); save(); return true; } return false; },
       onClick: (b, api) => {
         const a = b.dataset.act;
@@ -189,27 +195,28 @@
     function save() {
       const i = document.getElementById("pb-name"), name = (i && i.value.trim().slice(0, 14)) || "Puma";
       PB.setLastName(name);
-      placed = PB.addScore({ name, score: S.score, round: S.round, diff: S.D.name, rank, at: Date.now() });
+      placed = PB.addScore({ name, score: S.score, round: S.round, diff: S.D.name, rank, at: Date.now(), code: !!S.cheated });
       naming = false;
       UI.close(true);
       reopen();
     }
     function reopen() {
       UI.open("The raid is over", { wide: true, closable: false,
-        html: () => `<div class="report"><div><h3 class="mname big danger">${num(S.score)} points</h3><p class="meta">Round ${S.round} · ${esc(S.D.name)}</p><p class="rank">Rated <b>${esc(rank)}</b></p>${tally(S.stats)}</div>
-          <div><h3>High scores</h3>${scoresTable(PB.scores(), placed)}</div></div>
-          <div class="row end"><button data-act="again" class="primary">Fly again</button><button data-act="title">Title</button></div>`,
+        html: () => `<div class="report">${left()}
+          <div>${place ? `<p class="placed">${place}</p>` : ""}<h3>High scores</h3>${scoresTable(PB.scores(), placed)}</div></div>${ends}`,
         onClick: b => { if (b.dataset.act === "again") { UI.close(true); PB.game.start(S.diff); } if (b.dataset.act === "title") { UI.close(true); PB.game.toTitle(); } },
       });
     }
   };
-  const scoresTable = (list, mark = -1) => list.length ? `<table class="scores"><tr><th></th><th>Name</th><th class="num">Score</th><th>Round</th><th>Rated</th></tr>${list.map((e, i) => `<tr${i === mark ? ' class="mine"' : ""}><td class="num">${i + 1}</td><td>${esc(e.name)}</td><td class="num">${num(e.score)}</td><td>${e.round}, ${esc(e.diff)}</td><td>${esc(e.rank || "")}</td></tr>`).join("")}</table>` : `<p class="note">No scores yet. They are kept in this browser.</p>`;
-  UI.scores = () => UI.open("High scores", { wide: true, html: () => scoresTable(PB.scores()) + `<p class="note">The best ten, kept in this browser.</p>` });
+  const scoresTable = (list, mark = -1) => list.length ? `<table class="scores"><tr><th></th><th>Name</th><th class="num">Score</th><th>Round</th><th>Rated</th></tr>${list.map((e, i) => `<tr${i === mark ? ' class="mine"' : ""}><td class="num">${i + 1}</td><td>${esc(e.name)}</td><td class="num">${num(e.score)}</td><td>${e.round}, ${esc(e.diff)}${e.code ? " · code" : ""}</td><td>${esc(e.rank || "")}</td></tr>`).join("")}</table>` : `<p class="note">No scores yet: fly a raid, and the best ten are kept here, in this browser.</p>`;
+  UI.scores = () => UI.open("High scores", { html: () => scoresTable(PB.scores()) + (PB.scores().length ? `<p class="note">The best ten, kept in this browser.</p>` : "") });
 
   /* ---- Settings (greykit.games STANDARD.md §7: the game's own, Sound, speed, This browser) ---- */
   function showSettings() {
     const pill = (on, label, act) => `<button data-set="${act}" class="pill${on ? " on" : ""}" aria-pressed="${on}">${label}</button>`;
-    const sw = (k, n) => `<button data-set="aidt:${k}" role="switch" aria-checked="${PB.aid(k)}" aria-label="${esc(n)}" class="pill switch${PB.aid(k) ? " on" : ""}">${PB.aid(k) ? "On" : "Off"}</button>`;
+    const toggle = (act, on, n) => `<button data-set="${act}" role="switch" aria-checked="${on}" aria-label="${esc(n)}" class="pill switch${on ? " on" : ""}">${on ? "On" : "Off"}</button>`;
+    const sw = (k, n) => toggle("aidt:" + k, PB.aid(k), n);
+    const line = (n, note, ctl) => `<tr><td><b>${esc(n)}</b><br><span class="note">${note}</span></td><td class="act">${ctl}</td></tr>`;
     UI.open("Settings", { wide: true,
       html: () => { const changed = Object.keys(PB.prefs.over).length, adj = changed ? ", adjusted" : ""; return `
         <h3>Aids</h3>
@@ -218,11 +225,10 @@
         <details class="aid-list"${UI.aidOpen ? " open" : ""}><summary>Set each aid on its own${changed ? ` (${changed} changed)` : ""}</summary>
         <table class="aids">${PB.AID_LIST.map(([k, n, note]) => `<tr><td><b>${esc(n)}</b><br><span class="note">${esc(note)}</span></td><td class="act">${sw(k, n)}</td></tr>`).join("")}</table></details>
         <h3>Look</h3>
-        <div class="row">${pill(!PB.prefs.scanlines, "No scanlines", "scan:0")}${pill(PB.prefs.scanlines, "Scanlines", "scan:1")}</div>
-        <div class="row">${pill(PB.prefs.shake, "Screen shake", "shake:1")}${pill(!PB.prefs.shake, "Steady screen", "shake:0")}</div>
+        <table class="aids">${line("Scanlines", "Fine dark lines over the bay, like an old television.", toggle("scan", PB.prefs.scanlines, "Scanlines"))}
+        ${line("Screen shake", "The screen jolts with big explosions and hits." + (PB.calm() ? " Off to begin with, as this computer asks for less motion." : ""), toggle("shake", PB.prefs.shake, "Screen shake"))}</table>
         <h3>Sound</h3>
-        <div class="row">${pill(!PB.SFX.muted, "On", "mute:0")}${pill(PB.SFX.muted, "Off", "mute:1")}</div>
-        <p class="note">The rotor, the guns, the bombs, the klaxon; the march on the title. <kbd>M</kbd> switches it anywhere.</p>
+        <table class="aids">${line("Sound", "The rotor, the guns, the bombs, the klaxon; the march on the title. <kbd>M</kbd> switches it anywhere.", toggle("mute", !PB.SFX.muted, "Sound"))}</table>
         <h3>Game speed</h3>
         <div class="row">${Object.entries(PB.SPEEDS).map(([k, [n, hz]]) => pill(PB.prefs.speed === k, `${n} (${hz})`, "speed:" + k)).join("")}</div>
         <p class="note">Steps of the game each second. Every speed in it is in steps, so a slower clock changes nothing but time.</p>
@@ -238,9 +244,9 @@
         const [k, a] = v.split(":");
         if (k === "aids") PB.setAids(a);
         else if (k === "aidt") PB.setAid(a, !PB.aid(a));
-        else if (k === "scan") { PB.prefs.scanlines = a === "1"; PB.savePrefs(); PB.game.applyLook(); }
-        else if (k === "shake") { PB.prefs.shake = a === "1"; PB.savePrefs(); }
-        else if (k === "mute") { if ((a === "1") !== PB.SFX.muted) PB.game.toggleMute(); }
+        else if (k === "scan") { PB.prefs.scanlines = !PB.prefs.scanlines; PB.savePrefs(); PB.game.applyLook(); }
+        else if (k === "shake") { PB.prefs.shake = !PB.prefs.shake; PB.savePrefs(); }
+        else if (k === "mute") PB.game.toggleMute();
         else if (k === "speed") { PB.prefs.speed = a; PB.savePrefs(); PB.game.applySpeed(); }
         PB.game.syncAids();
         api.refresh();
@@ -252,6 +258,30 @@
 
   /* ---- Help and About ---- */
   const glyph = k => `<img class="px glyph" src="${ART.url(ART.glyph(k, "#e9e4d8"))}" width="18" height="18" alt="">`;
+  /* the enemy as it looks in the bay: its sprites laid over each other, cropped, at twice size */
+  const fig = (key, parts) => {
+    const c = K.get("fig:" + key, () => {
+      const W = Math.max(...parts.map(p => p.width)), H = Math.max(...parts.map(p => p.height)), a = K.mk(W, H), g = a.getContext("2d");
+      parts.forEach(p => g.drawImage(p, (W - p.width) >> 1, (H - p.height) >> 1));
+      const d = g.getImageData(0, 0, W, H).data;
+      let x0 = W, y0 = H, x1 = 0, y1 = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 30) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
+      const o = K.mk(x1 - x0 + 1, y1 - y0 + 1); o.getContext("2d").drawImage(a, -x0, -y0); return o;
+    });
+    return `<img class="px fig" src="${ART.url(c)}" width="${c.width * 2}" height="${c.height * 2}" alt="">`;
+  };
+  const enemy = () => {
+    const R = Math.PI / 2, row = (f, html) => `<tr><td class="figc">${f}</td><td>${html}</td></tr>`;
+    return `<table class="enemy">
+      ${row(fig("flak", [ART.pit(true), K.spr("flak", 0.6)]), `<p><b>Flak guns</b> ring every island. They lead their shots, so a helicopter that changes speed and course is hard to hit and one that hangs still is easy. Bomb them, or shoot them at close range.</p>`)}
+      ${row(fig("radar", [ART.tower(true), K.spr("dish", 0.4)]), `<p><b>Radar</b> towers see you coming, and then the <b>airfield</b> scrambles fighters. Bomb the radar and they come later; bomb all three hangars and none come at all until one is rebuilt.</p>`)}
+      ${row(fig("fighter", [K.spr("fighter", 0)]), `<p><b>Fighters</b> come in shooting; better electronics give them <b>homing missiles</b>, which you can dodge by turning hard across their path.</p>`)}
+      ${row(fig("bomber", [K.spr("bomber", 0)]), `<p>Now and then <b>bombers</b> take off for your carrier, and its klaxon sounds. The carrier's own guns will try, but go and meet them.</p>`)}
+      ${row(fig("tank", [K.spr("tank", 0), K.spr("turret", 0)]), `<p><b>Tanks</b> drive the island roads and shoot up at you.</p>`)}
+      ${row(fig("gunboat", [K.spr("gunboat", R)]), `<p><b>Gunboats</b> patrol the sea lanes.</p>`)}
+      ${row(fig("cargo", [K.spr("cargo", R)]), `<p><b>Cargo ships</b> carry parts from every factory's dock to the shipyard. Each one that arrives brings the battleship closer: sink them. Bombs on the yard while the ship is on the slip set the work back.</p>`)}
+    </table>`;
+  };
   UI.helpTabs = () => [
     ["The raid", `<p><b>The Wolf Empire has taken Puma Bay.</b> On six of its islands stand six factories, each feeding one part of its war; in a yard on a seventh, a battleship is building. You fly a helicopter off a carrier at the south-west of the bay, and you are a puma.</p>
       <p>Knock down all four buildings of a factory and it is gone; leave one standing and the enemy rebuilds the rest. Destroy all six and the round is won. Every round after is the same bay, rebuilt, with an enemy further along.</p>
@@ -272,14 +302,11 @@
     ["Flying", `<p>The helicopter keeps its way: let go and it drifts to a stop. A bomb carries on the way it was going, so it lands ahead of you: the faster you fly, the further ahead. Slow down to aim. The Field <b>bomb sight</b> shows where it will land, and lights up over something worth hitting.</p>
       <p>Damage slows you down past six bars, and smoke pours out. At ten, the helicopter goes down. Land and the deck crew patch it up; bombs are loaded one at a time while you wait.</p>
       <p>The bay wraps round: fly off one edge and you come in at the other.</p>`],
-    ["The enemy", `<p><b>Flak guns</b> ring every island. They lead their shots, so a helicopter that changes speed and course is hard to hit and one that hangs still is easy. Bomb them, or shoot them at close range.</p>
-      <p><b>Radar</b> towers see you coming, and then the <b>airfield</b> scrambles fighters. Bomb the radar and they come later; bomb all three hangars and none come at all until one is rebuilt. Fighters come in shooting; better electronics give them <b>homing missiles</b>, which you can dodge by turning hard across their path.</p>
-      <p>Now and then <b>bombers</b> take off for your carrier, and its klaxon sounds. The carrier's own guns will try, but go and meet them. <b>Tanks</b> drive the island roads and shoot up at you; <b>gunboats</b> patrol the sea lanes.</p>
-      <p><b>Cargo ships</b> carry parts from every factory's dock to the shipyard. Each one that arrives brings the battleship closer: sink them. Bombs on the yard while the ship is on the slip set the work back.</p>`],
+    ["The enemy", enemy()],
     ["Factories", `<table>${PB.C.KIND_ORDER.map(k => `<tr><td>${glyph(k)}</td><td><b>${esc(C.KINDS[k].name)}</b></td><td>${esc(C.KINDS[k].what)}</td></tr>`).join("")}</table>
-      <p>The pips by each factory in the corner are how far along its line is. A factory you have destroyed stays destroyed for the round, and its line stops where it was.</p>`],
+      <p>In the corner, each factory shows a square for each of its four buildings still standing, and its level: how far along its line is, from 0 to 9. A factory you have destroyed stays destroyed for the round, and its line stops where it was.</p>`],
     ["Classic and Field", `<p><b>Classic</b> flies as the 1984 game did: turn and thrust, the gauges in the corner, and nothing else. A game is played through.</p>
-      <p><b>Field</b>, the default, adds the radar chart, arrows at the screen's edge toward the carrier, the battleship and enemy aircraft, the bomb sight, the landing guide, Direct steering, and leaving a game to come back to it.</p>
+      <p><b>Field</b>, the default, adds the chart of the bay in the corner, arrows at the screen's edge toward the nearest factory, the carrier, the battleship and enemy aircraft, the bomb sight, the landing guide, Direct steering, and leaving a game to come back to it.</p>
       <p>Settings has each on its own. <kbd>L</kbd> switches between the two sets in the air.</p>`],
   ];
   UI.help = (tab = 0, after) => UI.open("Help", { wide: true, tab, tabs: UI.helpTabs(), onClose: after });

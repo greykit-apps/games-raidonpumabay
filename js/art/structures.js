@@ -33,10 +33,12 @@
   const GLASS = ["#c9f1f7", "#8ccfe0", "#5da4bd", "#3c768f", "#254d60"];
   const PIPE = M.yellow, WOOD = M.teak;
 
-  /* the empire's mark, painted on its roofs: a wolf's head in a red disc */
-  const WOLF = ["..rrrrr..", ".rrrrrrr.", "rrwrrrwrr", "rrwwrwwrr", "rrwwwwwrr", "rrrwwwrrr", "rrrrwrrrr", ".rrrrrrr.", "..rrrrr.."];
+  /* the empire's mark, painted on its roofs: a wolf's head in a red disc, the
+   * ears pricked to the rim, two dark eyes, the muzzle narrowing to its nose */
+  const WOLF = ["..rrrrr..", ".wrrrrrw.", "rwwrrrwwr", "rwwwwwwwr", "rwkwwwkwr", "rrwwwwwrr", "rrrwwwrrr", ".rrrkrrr.", "..rrrrr.."];
+  const WOLF_INK = { r: "#c8321f", w: "#f4ede4", k: "#2a1712" };
   ART.emblem = (g, x, y, k = 1) => {
-    WOLF.forEach((row, j) => { for (let i = 0; i < 9; i++) { const c = row[i]; if (c === ".") continue; g.fillStyle = c === "r" ? "#c8321f" : "#f4ede4"; g.fillRect(x + i * k, y + j * k, k, k); } });
+    WOLF.forEach((row, j) => { for (let i = 0; i < 9; i++) { const c = row[i]; if (c === ".") continue; g.fillStyle = WOLF_INK[c]; g.fillRect(x + i * k, y + j * k, k, k); } });
   };
 
   /* ---- a factory section, 32 x 32, its shadow beyond ---- */

@@ -233,7 +233,7 @@
     if (S.phase !== "report") return;
     const bonus = E.roundBonus(S).reduce((s, l) => s + l[1], 0);
     S.score += bonus;
-    S.round++; S.roundScore = 0; S.phase = "play"; S.endT = 0;
+    S.round++; S.roundScore = 0; S.phase = "play"; S.endT = 0; S.konami = false;
     S.roundStats = newStats();
     S.shots = []; S.bombs = [];
     /* the carrier is refitted, and a helicopter joins the air group */
