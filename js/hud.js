@@ -3,7 +3,7 @@
  * Top left, the helicopter: score, round, the airframe's damage, the bombs
  * aboard, the helicopters in reserve, the carrier. Top centre, the clock the
  * whole round runs against: the battleship on its slip, filling in as it is
- * built, and the words in the middle under it, now and then. Top right (a
+ * built. Bottom centre, the words now and then, over the key strip. Top right (a
  * Field aid), the chart of the whole bay. Bottom left, the enemy's six
  * factories by name: the buildings each still has standing, and how far
  * along its line is. Tab opens the chart full size, and the game waits.
@@ -43,16 +43,13 @@
         <div class="h-row"><span class="lbl">Bombs</span><span class="h-bombs">${bombs}</span></div>
         <div class="h-row"><span class="lbl">Reserve</span><span class="h-helis"></span><span class="h-carrier"><span class="lbl">Carrier</span> <b class="num">100%</b></span></div>
       </div>
-      <div class="h-mid">
-        <div class="hp" id="h-ship" data-st="build">
-          <div class="hs-top"><span class="lbl">Battleship</span><span class="hs-cap"></span><b class="hs-st num">0%</b></div>
-          <canvas id="h-shipc" width="${sp.w + 2}" height="${sp.h + 6}" style="--sw:${sp.w + 2}"></canvas>
-        </div>
-        <div class="h-toasts"></div>
+      <div class="hp" id="h-ship" data-st="build">
+        <div class="hs-top"><span class="lbl">Battleship</span><span class="hs-cap"></span><b class="hs-st num">0%</b></div>
+        <canvas id="h-shipc" width="${sp.w + 2}" height="${sp.h + 6}" style="--sw:${sp.w + 2}"></canvas>
       </div>
       <div class="hp" id="h-radar"><canvas id="h-mini" width="160" height="160"></canvas></div>
       <div class="hp" id="h-front"><div class="hf-head"><span class="lbl">Wolf factories</span><span class="lbl">Level</span></div>${facs}</div>
-      <div class="hp h-hint" hidden></div>
+      <div class="h-low"><div class="h-toasts"></div><div class="hp h-hint" hidden></div></div>
       <div class="hp h-end" hidden></div>
       <div class="h-flash"></div>
       <div class="h-mapview" hidden><div class="hp"><canvas id="h-big" width="640" height="640"></canvas><div class="h-intel"></div></div></div>`;
@@ -70,13 +67,14 @@
     box.appendChild(d);
     const t = { text, d, until: performance.now() + ms };
     HUD.toasts.push(t);
-    while (HUD.toasts.length > 3) HUD.toasts.shift().d.remove();
+    while (HUD.toasts.length > 2) HUD.toasts.shift().d.remove();
     const live = $("live"); if (live) live.textContent = text;
   };
   HUD.flash = () => { const f = HUD.el && HUD.el.querySelector(".h-flash"); if (!f) return; f.classList.remove("on"); void f.offsetWidth; f.classList.add("on"); };
   /* the gauge marks a cargo ship arriving (tick) and a hit on the yard (set) */
   HUD.pulse = kind => {
     const g = HUD.el && $("h-ship"); if (!g) return;
+    HUD.shipAt = performance.now();
     g.classList.remove("tick", "set"); void g.offsetWidth; g.classList.add(kind);
     clearTimeout(HUD.pulseT); HUD.pulseT = setTimeout(() => g.classList.remove(kind), 900);
   };
@@ -85,7 +83,7 @@
   /* a round won: the six factories, every one of them struck off */
   HUD.won = (S, round) => HUD.end(`Round ${round} won`, `All six factories are down · ${S.roundScore.toLocaleString("en-US")} points this round`, "ok",
     `<span class="h-down">${C.KIND_ORDER.map(k => `<i><img src="${ART.url(ART.glyph(k, "#8f8b82"))}" width="27" height="27" alt=""></i>`).join("")}</span>`);
-  HUD.clear = () => { HUD.toasts.forEach(t => t.d.remove()); HUD.toasts = []; HUD.end(null); HUD.hint(null); };
+  HUD.clear = () => { HUD.toasts.forEach(t => t.d.remove()); HUD.toasts = []; HUD.end(null); HUD.hint(null); HUD.shipAt = performance.now(); };
 
   /* ---- every frame ---- */
   HUD.draw = (S, ui) => {
@@ -113,8 +111,8 @@
         e.querySelector(".fl").textContent = S.lv[f.kind];
       });
     });
-    gauge(el, S);
-    if (now - (HUD.keptAt || 0) > 250) { HUD.keptAt = now; keepOut(); }
+    gauge(el, S, now);
+    if (now - (HUD.keptAt || 0) > 250) { HUD.keptAt = now; keepOut(); thin(S, ui); }
     /* the chart in the corner */
     const showRadar = !!ui.aids.radar;
     set($("h-radar"), "radar", showRadar, (e, v) => { e.hidden = !v; });
@@ -124,22 +122,43 @@
     if (ui.mapView) chart($("h-big").getContext("2d"), S, 640, PB.Terrain.map, PB.Render.frame);
   };
 
-  /* where the edge arrows must not go: under the battleship's gauge, and the key strip */
+  /* where the edge arrows must not go: under the battleship's gauge, and the strip at the foot.
+     And the camera's frame: the helicopter is kept in the middle of what the gauge and the key strip leave clear */
   function keepOut() {
-    const sc = $("screen"), k = sc.getBoundingClientRect().width / sc.width, out = [];
-    for (const n of [$("h-ship"), HUD.el.querySelector(".h-hint")]) {
-      if (!n || n.hidden) continue;
+    const sc = $("screen"), k = sc.getBoundingClientRect().width / sc.width, out = [], R = PB.Render;
+    for (const n of [$("h-ship"), HUD.el.querySelector(".h-low")]) {
       const r = n.getBoundingClientRect();
+      if (!r.height) continue;
       out.push({ x0: r.left / k - 4, x1: r.right / k + 4, y0: r.top / k - 4, y1: r.bottom / k + 4 });
     }
-    PB.Render.keepOut = out;
+    R.keepOut = out;
+    const top = $("h-ship").getBoundingClientRect(), hint = HUD.el.querySelector(".h-hint");
+    R.padT = top.bottom / k;
+    R.padB = hint.hidden ? 0 : (innerHeight - hint.getBoundingClientRect().top) / k;
+  }
+  /* a panel over the helicopter, or over a factory still standing, goes thin so the bay shows through */
+  const PANELS = ["h-status", "h-ship", "h-radar", "h-front"];
+  function thin(S, ui) {
+    const sc = $("screen"), k = sc.getBoundingClientRect().width / sc.width, R = PB.Render, m = PB.MAP;
+    const spots = [];
+    if (S.heli.state !== "gone") spots.push([R.sx(S.heli.x), R.sy(S.heli.y), 14]);
+    S.factories.forEach(f => { if (!f.dead) { const mf = m.factories[f.id]; spots.push([R.sx(mf.x), R.sy(mf.y), 34]); } });
+    for (const id of PANELS) {
+      const n = $(id); if (!n || n.hidden) continue;
+      const r = n.getBoundingClientRect();
+      const over = !ui.mapView && spots.some(([x, y, s]) => x * k + s * k > r.left && x * k - s * k < r.right && y * k + s * k > r.top && y * k - s * k < r.bottom);
+      n.classList.toggle("thin", over);
+    }
   }
 
   /* the battleship's clock: the hull fills in from the stern as it is built,
-   * amber from half way, red from three quarters; at sea, its hits left */
-  function gauge(el, S) {
+   * amber from half way, red from three quarters; at sea, its hits left.
+   * While it is only building and nothing has changed for a while, it slims down to the hull */
+  function gauge(el, S, now) {
     const sh = S.ship, p = sh.launched ? 1 : PB.clamp(sh.progress, 0, 1), pc = Math.floor(p * 100);
     const st = sh.sunk ? "sunk" : sh.launched ? "out" : p >= 0.75 ? "danger" : p >= 0.5 ? "near" : "build";
+    if (HUD.shipSt !== st) { HUD.shipSt = st; HUD.shipAt = now; }
+    set($("h-ship"), "shipIdle", st === "build" && now - (HUD.shipAt || 0) > 8000, (e, v) => e.classList.toggle("idle", v));
     set($("h-ship"), "ship", `${st}:${pc}:${sh.launched ? sh.hp : ""}`, e => {
       e.dataset.st = st;
       e.querySelector(".hs-st").textContent = st === "sunk" ? "sunk" : st === "out" ? `${sh.hp} hits` : pc + "%";
@@ -161,9 +180,9 @@
 
   /* ---- the chart: a mark for each thing, told apart by shape as well as colour ---- */
   const OUT = "#0b0f16";
-  const COL = { fac: "#e4572e", hit: "#f0a43c", dead: "#8f8b82", yard: "#c9a26a", ship: "#ffb03a", carrier: "#7fe08a", air: "#ff8a70", heli: "#ffffff" };
-  /* one mark, centred on x, y; d is the chart's unit */
-  function mark(g, what, x, y, d) {
+  const COL = { fac: "#e4572e", hit: "#f0a43c", dead: "#8f8b82", yard: "#c9a26a", ship: "#ffb03a", carrier: "#7fe08a", air: "#ff8a70", heli: "#e2ad6a" };
+  /* one mark, centred on x, y; d is the chart's unit; p swells the helicopter's ring a pixel */
+  function mark(g, what, x, y, d, p = 0) {
     x = Math.round(x); y = Math.round(y);
     const box = (w, h, col, hollow) => {
       const l = x - (w >> 1), t = y - (h >> 1);
@@ -181,7 +200,8 @@
         for (let i = -d; i <= d; i++) { const w = d - Math.abs(i); g.fillStyle = COL.ship; g.fillRect(x - w, y + i, w * 2 + 1, 1); } break;
       case "air": { const r = Math.max(1, d - 1); g.fillStyle = OUT; g.fillRect(x - r - 1, y - 1, r * 2 + 3, 3); g.fillRect(x - 1, y - r - 1, 3, r * 2 + 3);   /* a plus */
         g.fillStyle = COL.air; g.fillRect(x - r, y, r * 2 + 1, 1); g.fillRect(x, y - r, 1, r * 2 + 1); break; }
-      case "heli": box(d, d, COL.heli); g.fillStyle = COL.heli; { const r = d + 2; for (let i = -r; i <= r; i += 2) { g.fillRect(x + i, y - r, 1, 1); g.fillRect(x + i, y + r, 1, 1); g.fillRect(x - r, y + i, 1, 1); g.fillRect(x + r, y + i, 1, 1); } } break;   /* a pip in a ring */
+      case "heli": { const r = d + 3 + p, ring = (q, w, col) => { g.fillStyle = col; g.fillRect(x - q, y - q, q * 2 + 1, w); g.fillRect(x - q, y + q - w + 1, q * 2 + 1, w); g.fillRect(x - q, y - q, w, q * 2 + 1); g.fillRect(x + q - w + 1, y - q, w, q * 2 + 1); };
+        ring(r + 1, 4, OUT); ring(r, 2, COL.heli); box(d, d, "#ffffff"); break; }   /* a white pip in a tawny ring */
     }
   }
   function chart(g, S, size, base, t) {
@@ -202,7 +222,8 @@
     for (const f of S.fighters) mark(g, "air", f.x * k, f.y * k, d);
     for (const b of S.bombers) if (b.t >= 0) mark(g, "air", b.x * k, b.y * k, d);
     const h = S.heli;
-    if (h.state !== "gone" && (calm || (t >> 3) % 4)) mark(g, "heli", h.x * k, h.y * k, Math.max(2, d - 1));
+    /* the helicopter last, over everything, never hidden: its ring swells and settles */
+    if (h.state !== "gone") mark(g, "heli", h.x * k, h.y * k, Math.max(2, d - 1), calm ? 0 : (t >> 4) & 1);
   }
   /* the legend's marks: the same drawing, on its own small canvas */
   const legendMark = what => K.get("lg:" + what, () => { const c = K.mk(13, 13); mark(c.getContext("2d"), what, 6, 6, what === "heli" ? 2 : 3); return c; });
@@ -211,7 +232,7 @@
   function intel(S) {
     const box = HUD.el.querySelector(".h-intel"), sh = S.ship;
     box.innerHTML = `<h2>Puma Bay</h2><p class="h-mvst">Round ${S.round}, ${esc(S.D.name)}. ${E_ALIVE(S)} of 6 factories standing.</p>` +
-      S.factories.map(f => `<div class="h-kr${f.dead ? " dead" : ""}"><span><img src="${ART.url(ART.glyph(f.kind, f.dead ? "#8f8b82" : "#e9e4d8"))}" width="18" height="18" alt=""> ${esc(C.KINDS[f.kind].name)}</span><b>${f.dead ? "destroyed" : `level ${S.lv[f.kind]}`}</b></div>`).join("") +
+      C.KIND_ORDER.map(kd => S.factories.find(f => f.kind === kd)).filter(Boolean).map(f => `<div class="h-kr${f.dead ? " dead" : ""}"><span><img src="${ART.url(ART.glyph(f.kind, f.dead ? "#8f8b82" : "#e9e4d8"))}" width="18" height="18" alt=""> ${esc(C.KINDS[f.kind].name)}</span><b>${f.dead ? "destroyed" : `level ${S.lv[f.kind]}`}</b></div>`).join("") +
       `<div class="h-kr"><span>Battleship</span><b>${sh.launched ? (sh.sunk ? "sunk" : "at sea") : Math.floor(sh.progress * 100) + "% built"}</b></div>` +
       `<div class="h-legend">${LEGEND.map(([w, n]) => `<span><img class="lg" src="${ART.url(legendMark(w))}" width="26" height="26" alt="">${n}</span>`).join("")}</div>` +
       `<p class="h-mvkeys"><kbd>Tab</kbd> or <kbd>Esc</kbd> back to the bay</p>`;

@@ -103,16 +103,26 @@
   });
 
   /* ---- a new game: how hard ---- */
+  /* the first time, the controls are asked for here too; Classic stays chosen unless Modern is */
   UI.newGame = () => {
-    const last = PB.store.get("raidonpumabay_diff_v1", 1);
+    const last = PB.store.get("raidonpumabay_diff_v1", 1), ask = !PB.prefs.steerAsked && !PB.prefs.learned;
     UI.open("New game", { back: () => PB.game.toTitle(),
       html: () => `<p class="lede">The Wolf Empire has six factories on the islands of Puma Bay, and a battleship building in a secret yard. You have a carrier, a helicopter, and nine bombs at a time.</p>
-        <div class="diffs">${C.DIFF.map((d, i) => `<button data-d="${i}" class="${i === last ? "primary" : ""}"${i === last ? " autofocus" : ""}><b><kbd>${i + 1}</kbd>${esc(d.name)}</b><span>${esc(d.note)}</span></button>`).join("")}</div>
-        <p class="note">${PB.prefs.aids === "field" ? "Aids: <b>Field</b>, the modern helps: a chart of the bay in the corner, arrows toward the nearest factory and the carrier, a bomb sight and a landing guide." : "Aids: <b>Classic</b>, as 1984 flew: the gauges and your eyes."}${Object.keys(PB.prefs.over).length ? " Adjusted in Settings." : ""} Change them in Settings, or with <kbd>L</kbd> in the air.</p>`,
+        <div class="diffs">${C.DIFF.map((d, i) => `<button data-d="${i}"${i === last ? " autofocus" : ""}><b><kbd>${i + 1}</kbd>${esc(d.name)}${i === last ? '<em class="last">last flown</em>' : ""}</b><span>${esc(d.note)}</span></button>`).join("")}</div>
+        ${ask ? `<h3>Controls</h3><div class="row">${Object.entries(PB.STEER).map(([k, n]) => `<button data-steer="${k}" class="pill${PB.prefs.steer === k ? " on" : ""}" aria-pressed="${PB.prefs.steer === k}">${n}</button>`).join("")}</div>
+        <p class="note">${PB.modern() ? "Modern: the arrows point the way to fly." : "Classic, as 1984 flew: <kbd>←</kbd> <kbd>→</kbd> turn, <kbd>↑</kbd> forward."} Change it any time in Settings.</p>` : ""}
+        <p class="note">Aids: <b>${esc(PB.aidsLabel())}</b>. Change them in Settings, or with <kbd>L</kbd> in the air.</p>`,
       onKey: ev => { const n = +ev.key; if (n >= 1 && n <= 3) { ev.preventDefault(); go(n - 1); return true; } return false; },
-      onClick: b => { if (b.dataset.d !== undefined) go(+b.dataset.d); },
+      onClick: (b, api) => {
+        if (b.dataset.d !== undefined) go(+b.dataset.d);
+        if (b.dataset.steer) { PB.prefs.steer = b.dataset.steer; PB.savePrefs(); api.refresh(); api.el.querySelector(`[data-steer="${b.dataset.steer}"]`).focus({ preventScroll: true }); }
+      },
     });
-    function go(d) { PB.store.set("raidonpumabay_diff_v1", d); UI.close(true); PB.game.start(d); }
+    function go(d) {
+      PB.store.set("raidonpumabay_diff_v1", d);
+      if (ask) { PB.prefs.steerAsked = true; PB.savePrefs(); }
+      UI.close(true); PB.game.start(d);
+    }
   };
 
   /* ---- pause ---- */
@@ -124,8 +134,7 @@
         <div class="col"><button data-act="resume" class="primary">Resume</button>
         <button data-act="map">Chart of the bay <kbd>Tab</kbd></button>
         <button data-act="settings">Settings</button><button data-act="help">Help</button>
-        <button data-act="restart">Start again</button>
-        <button data-act="leave">${PB.aid("resume") ? "Leave: resume it later" : "Abandon the game"}</button></div>
+        <button data-act="leave">Main menu</button></div>
         <div class="note keys legend">${(PB.modern() ? [["Arrows", "fly that way"], ["Shift", "brake"]] : [["← →", "turn"], ["↑", "forward"], ["↓", "brake"]]).concat([["Space", "gun"], ["B", "bomb"], ["Tab", "chart"], ["L", "aids"]]).map(([k, w]) => `<span class="k">${k.split(" ").map(x => `<kbd>${x}</kbd>`).join(" ")}</span><span>${w}</span>`).join("")}</div>`,
       onClick: async b => {
         const a = b.dataset.act;
@@ -133,9 +142,8 @@
         if (a === "map") { UI.close(); PB.game.openMap(); }
         if (a === "settings") { UI.close(true); UI.settings(() => UI.pause()); }
         if (a === "help") { UI.close(true); UI.help(0, () => UI.pause()); }
-        if (a === "restart" && await UI.ask(`Start a new game on ${S.D.name}? This one ends here, and its score is not kept.`, "Start again")) { UI.close(true); PB.game.restart(); }
         if (a === "leave") {
-          if (PB.aid("resume")) { UI.close(true); PB.game.leave(); return; }
+          if (PB.prefs.resume) { UI.close(true); PB.game.leave(); return; }
           if (await UI.ask("Abandon this game? Its score still counts for the high scores.", "Abandon")) { UI.close(true); PB.game.abandon(); }
         }
       },
@@ -155,11 +163,11 @@
         <div><h3>The round's bonus</h3><table class="tally">${bonus.map(([n, v]) => `<tr><td>${esc(n)}</td><td class="num">+${num(v)}</td></tr>`).join("")}
         <tr class="sum"><td>Bonus</td><td class="num">+${num(total)}</td></tr></table>
         <p>Every factory will be rebuilt for round ${S.round + 1}, further along than before. The carrier is refitted, and a helicopter joins the air group.</p></div></div>
-        <div class="row end"><button data-act="next" class="primary">Round ${S.round + 1}</button><button data-act="leave">${PB.aid("resume") ? "Leave: resume it later" : "End here"}</button></div>`,
+        <div class="row end"><button data-act="next" class="primary">Round ${S.round + 1}</button><button data-act="leave">${PB.prefs.resume ? "Leave: resume it later" : "End here"}</button></div>`,
       onClick: async b => {
         if (b.dataset.act === "next") { UI.close(true); PB.game.nextRound(); }
         if (b.dataset.act === "leave") {
-          if (PB.aid("resume")) { UI.close(true); PB.game.nextRound(true); return; }
+          if (PB.prefs.resume) { UI.close(true); PB.game.nextRound(true); return; }
           if (await UI.ask("End the game here? The score so far goes to the high scores.", "End the game")) { UI.close(true); PB.game.nextRound(); PB.game.abandon(); }
         }
       },
@@ -172,22 +180,26 @@
     const rank = C.rankFor(S.score), next = C.RANKS.find(([at]) => at > S.score), can = PB.qualifies(S.score);
     const pos = PB.scores().filter(e => e.score >= S.score).length, abandoned = S.end && S.end.why === "abandon";
     const place = can ? (pos === 0 ? "A new best score" : `Number ${pos + 1} on the table`) : "";
-    let placed = -1, naming = can;
-    /* the left half is the same before the name and after it: the score, why it ended, the rank, the tally */
+    let placed = -1, naming = can, skipped = false;
+    /* how close it came: the round's factories, and the battleship */
+    const down = S.factories.filter(f => f.dead).length, sh = S.ship;
+    const close = `${down} of 6 factories down · battleship ${sh.sunk ? "sunk" : sh.launched ? "at sea" : Math.floor(sh.progress * 100) + "% built"}`;
+    /* the left half is the same before the name and after it: the score, why it ended, how close, the rank, the tally */
     const left = () => `<div><h3 class="mname big${abandoned ? " dim" : ""}">${num(S.score)} points</h3>
         <p class="meta">${esc(WHY[S.end ? S.end.why : "helis"])} Round ${S.round} · ${esc(S.D.name)}</p>
+        <p class="closeby">${close}</p>
         <p class="rank">Rated <b>${esc(rank)}</b></p>${next ? `<p class="note nextrank">Next: ${esc(next[1])}, at ${num(next[0])} points</p>` : ""}${tally(S.stats)}</div>`;
     const ends = `<div class="row end"><button data-act="again" class="primary">Fly again</button><button data-act="title">Title</button></div>`;
     UI.open("The raid is over", { wide: true, closable: false,
       html: () => `<div class="report">${left()}
         <div>${naming ? `<p class="placed">${place}</p><p>Your name for the table:</p><div class="row"><label class="sr" for="pb-name">Your name</label><input id="pb-name" maxlength="14" value="${esc(PB.lastName())}" placeholder="Puma" autocomplete="off" autofocus><button data-act="save" class="primary">Save</button><button data-act="skip">Skip</button></div><p class="note">Left blank, it is saved as Puma.</p>` :
-          `<h3>High scores</h3>${scoresTable(PB.scores(), placed)}`}</div></div>
+          `${skipped ? `<p class="placed">${place}</p><p class="note">Not saved to the table.</p>` : ""}${!skipped || PB.scores().length ? `<h3>High scores</h3>${scoresTable(PB.scores(), placed)}` : ""}`}</div></div>
         ${naming ? "" : ends}`,
       onKey: ev => { if (naming && ev.key === "Enter" && document.activeElement && document.activeElement.id === "pb-name") { ev.preventDefault(); save(); return true; } return false; },
       onClick: (b, api) => {
         const a = b.dataset.act;
         if (a === "save") save(api);
-        if (a === "skip") { naming = false; api.refresh(); }
+        if (a === "skip") { naming = false; skipped = true; api.refresh(); }
         if (a === "again") { UI.close(true); PB.game.start(S.diff); }
         if (a === "title") { UI.close(true); PB.game.toTitle(); }
       },
@@ -209,7 +221,10 @@
     }
   };
   const scoresTable = (list, mark = -1) => list.length ? `<table class="scores"><tr><th></th><th>Name</th><th class="num">Score</th><th>Round</th><th>Rated</th></tr>${list.map((e, i) => `<tr${i === mark ? ' class="mine"' : ""}><td class="num">${i + 1}</td><td>${esc(e.name)}</td><td class="num">${num(e.score)}</td><td>${e.round}, ${esc(e.diff)}${e.code ? " · code" : ""}</td><td>${esc(e.rank || "")}</td></tr>`).join("")}</table>` : `<p class="note">No scores yet: fly a raid, and the best ten are kept here, in this browser.</p>`;
-  UI.scores = () => UI.open("High scores", { html: () => scoresTable(PB.scores()) + (PB.scores().length ? `<p class="note">The best ten, kept in this browser.</p>` : "") });
+  UI.scores = () => UI.open("High scores", {
+    html: () => scoresTable(PB.scores()) + (PB.scores().length ? `<p class="note">The best ten, kept in this browser.</p>` : `<div class="row end"><button data-act="new" class="primary">New game</button></div>`),
+    onClick: b => { if (b.dataset.act === "new") { UI.close(true); UI.newGame(); } },
+  });
 
   /* ---- Settings (greykit.games STANDARD.md §7: the game's own, Sound, speed, This browser) ---- */
   function showSettings() {
@@ -231,11 +246,12 @@
         <table class="aids">${line("Scanlines", "Fine dark lines over the bay, like an old television.", toggle("scan", PB.prefs.scanlines, "Scanlines"))}
         ${line("Screen shake", "The screen jolts with big explosions and hits." + (PB.calm() ? " Off to begin with, as this computer asks for less motion." : ""), toggle("shake", PB.prefs.shake, "Screen shake"))}</table>
         <h3>Sound</h3>
-        <table class="aids">${line("Sound", "The rotor, the guns, the bombs, the klaxon; the march on the title. <kbd>M</kbd> switches it anywhere.", toggle("mute", !PB.SFX.muted, "Sound"))}</table>
+        <table class="aids">${line("Sound", "The rotor, the guns, the bombs, the klaxon; the theme on the title. <kbd>M</kbd> switches it anywhere.", toggle("mute", !PB.SFX.muted, "Sound"))}</table>
         <h3>Game speed</h3>
-        <div class="row">${Object.entries(PB.SPEEDS).map(([k, [n, hz]]) => pill(PB.prefs.speed === k, `${n} (${hz})`, "speed:" + k)).join("")}</div>
-        <p class="note">Steps of the game each second. Every speed in it is in steps, so a slower clock changes nothing but time.</p>
+        <div class="row">${Object.entries(PB.SPEEDS).map(([k, [n]]) => pill(PB.prefs.speed === k, n, "speed:" + k)).join("")}</div>
+        <p class="note">Relaxed slows the whole game down, Brisk speeds it up. Nothing else changes.</p>
         <h3>This browser</h3>
+        <table class="aids">${line("Resume a game", "Leave a game in the middle and come back to it. Off, a game is played through.", toggle("resume", PB.prefs.resume, "Resume a game"))}</table>
         <div class="row"><button data-set="forget" class="danger">Forget everything</button></div>
         <p class="note">Clears everything Raid on Puma Bay keeps in this browser: the high scores, a game in progress, and these settings.</p>`; },
       onClick: async (b, api) => {
@@ -250,6 +266,7 @@
         else if (k === "steer") { PB.prefs.steer = a; PB.savePrefs(); }
         else if (k === "scan") { PB.prefs.scanlines = !PB.prefs.scanlines; PB.savePrefs(); PB.game.applyLook(); }
         else if (k === "shake") { PB.prefs.shake = !PB.prefs.shake; PB.savePrefs(); }
+        else if (k === "resume") { PB.prefs.resume = !PB.prefs.resume; PB.savePrefs(); }
         else if (k === "mute") PB.game.toggleMute();
         else if (k === "speed") { PB.prefs.speed = a; PB.savePrefs(); PB.game.applySpeed(); }
         PB.game.syncAids();
@@ -262,7 +279,8 @@
 
   /* ---- Help and About ---- */
   const glyph = k => `<img class="px glyph" src="${ART.url(ART.glyph(k, "#e9e4d8"))}" width="18" height="18" alt="">`;
-  /* the enemy as it looks in the bay: its sprites laid over each other, cropped, at twice size */
+  /* the enemy as it looks in the bay: its sprites laid over each other, cropped, at twice size,
+     or at its own size when twice would not fit the column or the row */
   const fig = (key, parts) => {
     const c = K.get("fig:" + key, () => {
       const W = Math.max(...parts.map(p => p.width)), H = Math.max(...parts.map(p => p.height)), a = K.mk(W, H), g = a.getContext("2d");
@@ -272,52 +290,45 @@
       for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (d[(y * W + x) * 4 + 3] > 30) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); }
       const o = K.mk(x1 - x0 + 1, y1 - y0 + 1); o.getContext("2d").drawImage(a, -x0, -y0); return o;
     });
-    return `<img class="px fig" src="${ART.url(c)}" width="${c.width * 2}" height="${c.height * 2}" alt="">`;
+    const s = c.width * 2 > 112 || c.height * 2 > 60 ? 1 : 2;
+    return `<img class="px fig" src="${ART.url(c)}" width="${c.width * s}" height="${c.height * s}" alt="">`;
   };
   const enemy = () => {
     const R = Math.PI / 2, row = (f, html) => `<tr><td class="figc">${f}</td><td>${html}</td></tr>`;
     return `<table class="enemy">
-      ${row(fig("flak", [ART.pit(true), K.spr("flak", 0.6)]), `<p><b>Flak guns</b> ring every island. They lead their shots, so a helicopter that changes speed and course is hard to hit and one that hangs still is easy. Bomb them, or shoot them at close range.</p>`)}
-      ${row(fig("radar", [ART.tower(true), K.spr("dish", 0.4)]), `<p><b>Radar</b> towers see you coming, and then the <b>airfield</b> scrambles fighters. Bomb the radar and they come later; bomb all three hangars and none come at all until one is rebuilt.</p>`)}
-      ${row(fig("fighter", [K.spr("fighter", 0)]), `<p><b>Fighters</b> come in shooting; better electronics give them <b>homing missiles</b>, which you can dodge by turning hard across their path.</p>`)}
-      ${row(fig("bomber", [K.spr("bomber", 0)]), `<p>Now and then <b>bombers</b> take off for your carrier, and its klaxon sounds. The carrier's own guns will try, but go and meet them.</p>`)}
-      ${row(fig("tank", [K.spr("tank", 0), K.spr("turret", 0)]), `<p><b>Tanks</b> drive the island roads and shoot up at you.</p>`)}
+      ${row(fig("flak", [ART.pit(true), K.spr("flak", 0.6)]), `<p><b>Flak guns</b> lead their shots. Keep moving.</p>`)}
+      ${row(fig("radar", [ART.tower(true), K.spr("dish", 0.4)]), `<p><b>Radar</b> calls up fighters. Bomb it to slow them, or the hangars to stop them.</p>`)}
+      ${row(fig("fighter", [K.spr("fighter", 0)]), `<p><b>Fighters</b> later carry homing missiles. Turn hard across their path.</p>`)}
+      ${row(fig("bomber", [K.spr("bomber", 0)]), `<p><b>Bombers</b> go for your carrier. The klaxon warns you.</p>`)}
+      ${row(fig("tank", [K.spr("tank", 0), K.spr("turret", 0)]), `<p><b>Tanks</b> drive the island roads.</p>`)}
       ${row(fig("gunboat", [K.spr("gunboat", R)]), `<p><b>Gunboats</b> patrol the sea lanes.</p>`)}
-      ${row(fig("cargo", [K.spr("cargo", R)]), `<p><b>Cargo ships</b> carry parts from every factory's dock to the shipyard. Each one that arrives brings the battleship closer: sink them. Bombs on the yard while the ship is on the slip set the work back.</p>`)}
+      ${row(fig("cargo", [K.spr("cargo", R)]), `<p><b>Cargo ships</b> carry parts to the shipyard. Sink them to slow the battleship.</p>`)}
+      ${row(fig("ship", [K.spr("ship4", R)]), `<p><b>The battleship</b> builds in a secret yard. Bomb the yard to set it back. Once it sails, it hunts your carrier.</p>`)}
     </table>`;
   };
   UI.helpTabs = () => [
-    ["The raid", `<p><b>The Wolf Empire has taken Puma Bay.</b> On six of its islands stand six factories, each feeding one part of its war; in a yard on a seventh, a battleship is building. You fly a helicopter off a carrier at the south-west of the bay, and you are a puma.</p>
-      <p>Knock down all four buildings of a factory and it is gone; leave one standing and the enemy rebuilds the rest. Destroy all six and the round is won. Every round after is the same bay, rebuilt, with an enemy further along.</p>
-      <p>Bring the helicopter back to the <b>carrier</b> to load nine bombs and be patched up: slow down over the deck and it settles on the yellow paw. Push forward to lift off. Lose every helicopter, or the carrier, and the raid is over.</p>
-      <p>While a factory stands, its line of the war gets better, a level at a time. The longer you leave the battleship, the closer it is to sailing; once it does it comes for your carrier.</p>
+    ["The raid", `<p><b>Destroy all six Wolf factories before the battleship is built.</b> A factory falls when all four of its buildings are down.</p>
+      <p>Land on the <b>carrier</b> to repair and load nine bombs. Lose every helicopter, or the carrier, and the raid is over.</p>
+      <p>The gun hits anything but factories and the battleship: those take bombs. Bombs land ahead of you, further the faster you fly.</p>
       <p class="gk-credit">${CREDIT}</p>`],
     ["Keys", `<table class="keys">
-      <tr><td>Fly (Classic)</td><td><kbd>←</kbd> <kbd>→</kbd> turn, <kbd>↑</kbd> forward, <kbd>↓</kbd> brake and back off; or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td></tr>
-      <tr><td>Fly (Modern)</td><td>the arrows point the way to fly, eight ways; <kbd>Shift</kbd> brakes. Choose it under Controls in Settings</td></tr>
-      <tr><td>Gun</td><td><kbd>Space</kbd> or <kbd>J</kbd>, held: it fires where the nose points</td></tr>
-      <tr><td>Bomb</td><td><kbd>B</kbd>, <kbd>X</kbd> or <kbd>K</kbd>; hold it for a stick of bombs</td></tr>
-      <tr><td>Land</td><td>slow down over the carrier's deck and let go: it settles on its own</td></tr>
-      <tr><td>Chart</td><td><kbd>Tab</kbd>: the whole bay, and the game waits</td></tr>
+      <tr><td>Fly</td><td><kbd>←</kbd> <kbd>→</kbd> turn, <kbd>↑</kbd> forward, <kbd>↓</kbd> brake, or <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd></td></tr>
+      <tr><td>Fly (Modern)</td><td>arrows point the way, <kbd>Shift</kbd> brakes</td></tr>
+      <tr><td>Gun</td><td><kbd>Space</kbd> or <kbd>J</kbd></td></tr>
+      <tr><td>Bomb</td><td><kbd>B</kbd>, <kbd>X</kbd> or <kbd>K</kbd></td></tr>
+      <tr><td>Land</td><td>slow down over the deck</td></tr>
+      <tr><td>Chart</td><td><kbd>Tab</kbd></td></tr>
       <tr><td>Pause</td><td><kbd>Esc</kbd> or <kbd>P</kbd></td></tr>
-      <tr><td>Aids</td><td><kbd>L</kbd> Classic or Field</td></tr>
+      <tr><td>Aids</td><td><kbd>L</kbd></td></tr>
       <tr><td>Sound</td><td><kbd>M</kbd></td></tr></table>
-      <p class="note">A gamepad works too: the stick flies, A or the right trigger fires the gun, B, X or the left trigger drops a bomb, a bumper brakes, Back is the chart, Start pauses.</p>`],
-    ["Flying", `<p>The helicopter keeps its way: let go and it drifts to a stop. A bomb carries on the way it was going, so it lands ahead of you: the faster you fly, the further ahead. Slow down to aim. The Field <b>bomb sight</b> shows where it will land, and lights up over something worth hitting.</p>
-      <p>Damage slows you down past six bars, and smoke pours out. At ten, the helicopter goes down. Land and the deck crew patch it up; bombs are loaded one at a time while you wait.</p>
-      <p>The bay wraps round: fly off one edge and you come in at the other.</p>`],
+      <p class="note">Gamepad: stick flies, A gun, B bomb, bumper brakes, Back chart, Start pause.</p>`],
     ["The enemy", enemy()],
     ["Factories", `<table>${PB.C.KIND_ORDER.map(k => `<tr><td>${glyph(k)}</td><td><b>${esc(C.KINDS[k].name)}</b></td><td>${esc(C.KINDS[k].what)}</td></tr>`).join("")}</table>
-      <p>In the corner, each factory shows a square for each of its four buildings still standing, and its level: how far along its line is, from 0 to 9. A factory you have destroyed stays destroyed for the round, and its line stops where it was.</p>`],
-    ["Classic and Field", `<p><b>Classic</b> flies as the 1984 game did: the gauges in the corner, and nothing else. A game is played through.</p>
-      <p><b>Field</b>, the default, adds the chart of the bay in the corner, arrows at the screen's edge toward the nearest factory, the carrier, the battleship and enemy aircraft, the bomb sight, the landing guide, and leaving a game to come back to it.</p>
-      <p>Settings has each on its own. <kbd>L</kbd> switches between the two sets in the air.</p>
-      <p>Steering is its own setting, under Controls: <b>Classic</b>, the default, turns and thrusts as 1984 did; <b>Modern</b> flies the way the stick points. The aids leave it alone.</p>`],
+      <p>The longer a factory stands, the higher its level, from 0 to 9.</p>`],
   ];
   UI.help = (tab = 0, after) => UI.open("Help", { wide: true, tab, tabs: UI.helpTabs(), onClose: after });
-  UI.aboutHTML = () => `<p><b>Raid on Puma Bay</b> is a remake of <i>Raid on Bungeling Bay</i> (Broderbund, 1984) for the Commodore 64: a helicopter off a carrier against an empire's factories, its fighters and flak, and the battleship it is building in secret.</p>
-    <p>The original was designed and drawn by Will Wright, his first game. This is not affiliated with Broderbund; no code, art or sound from the original is used. Everything here is drawn and synthesised in the page, the title march included, and the pilot is a puma.</p>
-    <p>The map, the numbers and the rules where the original is silent are ours.</p>
+  UI.aboutHTML = () => `<p><b>Raid on Puma Bay</b> is a heavily modified remake of <i>Raid on Bungeling Bay</i> (Broderbund, 1984) for the Commodore 64. Raid the Empire's manufacturing capability before they build a Super Battleship.</p>
+    <p>I hated every "remake" of RoBB because they always made the game soft and easy. Now that it's my turn... I get it. I love it, but I get it.</p>
     <p class="gk-credit">${CREDIT}</p>`;
   UI.about = after => UI.open("About", { html: UI.aboutHTML, onClose: after });
 })();
