@@ -143,34 +143,32 @@ img.glyph { display: block; }
 .pb-pop .keys.legend { display: grid; grid-template-columns: max-content 1fr max-content 1fr; gap: 7px 12px; align-items: center; line-height: 1.2; }
 .pb-pop .keys.legend .k { display: flex; gap: 4px; justify-self: end; }
 
-/* ---- the title: the bay behind, the name, the menu in a panel ---- */
-.pb-title { position: fixed; inset: 0; overflow: hidden; background: #173f62; }
-.pb-scene { position: absolute; inset: 0; width: 100%; height: 100%; image-rendering: pixelated; image-rendering: crisp-edges; }
-.pb-shade { position: absolute; inset: 0; pointer-events: none;
-  background: linear-gradient(90deg, rgba(6,10,16,.86) 0%, rgba(6,10,16,.6) 32%, rgba(6,10,16,.08) 60%, rgba(6,10,16,0) 72%), radial-gradient(ellipse 80% 90% at 60% 45%, rgba(0,0,0,0) 55%, rgba(6,12,28,.45) 100%); }
-.pb-title main { position: relative; height: 100%; width: min(680px, 100%); display: flex; flex-direction: column; justify-content: center; padding: 32px 0 64px clamp(32px, 7vw, 120px); }
-.pb-mark { margin: 0; font: 700 clamp(56px, 6.4vw, 92px)/.9 var(--ui); text-transform: uppercase; letter-spacing: .005em; color: var(--pb-text); text-shadow: 0 4px 28px rgba(0,0,0,.45); }
-.pb-mark > span { display: block; }
-.pb-mark .raid { font-size: .48em; letter-spacing: .14em; color: var(--pb-muted); margin-bottom: .12em; }
-.pb-mark .puma { color: var(--pb-tawny); }
-.pb-sub > span { white-space: nowrap; }
-.pb-sub { margin: 16px 0 30px; max-width: 440px; font-size: 14px; font-weight: 600; line-height: 1.6; letter-spacing: .2em; text-transform: uppercase; text-wrap: balance; color: var(--pb-muted); text-shadow: 0 1px 10px rgba(6,10,16,.9); }
-.pb-menu { display: flex; flex-direction: column; width: min(460px, 100%); padding: 8px 0; background: var(--pb-panel); border: 1px solid var(--pb-line); border-radius: 8px; box-shadow: 0 18px 50px rgba(0,0,0,.45); }
-.pb-menu button { position: relative; display: flex; align-items: center; gap: 14px; width: 100%; height: 50px; padding: 0 22px; border: 0; border-radius: 0; background: transparent; font-size: 20px; font-weight: 500; color: rgba(236,231,220,.86); }
-.pb-menu kbd { min-width: 26px; text-align: center; color: var(--pb-muted); }
-.pb-menu .lbl { white-space: nowrap; }
-.pb-menu .meta { margin: 0 0 0 auto; font-size: 15px; font-weight: 500; color: var(--pb-faint); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.pb-menu .dflt { color: var(--pb-text); font-weight: 600; }
-.pb-menu button:focus { color: #fffaf0; font-weight: 600; background: linear-gradient(90deg, rgba(242,193,78,.22), rgba(242,193,78,.05) 75%, rgba(242,193,78,0)); box-shadow: none; }
-.pb-menu button:focus::before { content: ""; position: absolute; left: 7px; top: 50%; margin-top: -6px; border-left: 7px solid var(--pb-yellow); border-top: 6px solid transparent; border-bottom: 6px solid transparent; }
-.pb-menu button:focus kbd { color: var(--pb-text); border-color: var(--pb-yellow); }
-.pb-menu button:focus .meta { color: var(--pb-muted); }
-.pb-menu .util { display: flex; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--pb-hair); }
-.pb-menu .util button { flex: 1; height: 44px; font-size: 16px; gap: 10px; padding: 0 18px; }
-.pb-foot { position: absolute; left: clamp(32px, 7vw, 120px); bottom: 24px; font-size: 14px; }
-.pb-print .pr { animation: pb-pr .32s cubic-bezier(.2,.8,.2,1) calc(var(--i) * 45ms) both; }
-@keyframes pb-pr { from { opacity: 0; transform: translateX(-8px); } to { opacity: 1; transform: none; } }
-@media (prefers-reduced-motion: reduce) { .pb-print .pr { animation: none; } }
+/* ---- the title: the canon default (@gk-title v0.4, this game's own title made the default) over the
+   bay, in the deck's colours; and the integrated intro's switches and credit (gk-intro.js) ---- */
+#title { --gk-title-ink: var(--pb-text); --gk-title-hi: var(--pb-tawny); --gk-title-focus: var(--pb-yellow); --gk-title-dim: var(--pb-muted);
+  --gk-title-panel: var(--pb-panel); --gk-title-line: var(--pb-line); --gk-title-font: var(--ui); }
+#title .gk-title { --t-x: clamp(32px, 7vw, 120px); }
+#title .gk-title > .scene { background: #173f62; }
+.pb-scene { image-rendering: pixelated; image-rendering: crisp-edges; }
+#title .gk-title > .gk-shade { background: linear-gradient(90deg, rgba(6,10,16,.86) 0%, rgba(6,10,16,.6) 32%, rgba(6,10,16,.08) 60%, rgba(6,10,16,0) 72%), radial-gradient(ellipse 80% 90% at 60% 45%, rgba(0,0,0,0) 55%, rgba(6,12,28,.45) 100%); }
+#title .gk-title > main { width: min(680px, 100%); }
+/* the name: "Raid on" small and quiet over "Puma Bay", and only the puma in its colour */
+#title .gk-title h1 { font-size: clamp(56px, 6.4vw, 92px); }
+#title .gk-title h1 > span:first-child { font-size: .48em; letter-spacing: .14em; color: var(--pb-muted); margin-bottom: .12em; }
+#title .gk-title h1 > span + span { color: var(--pb-text); }
+#title .gk-title h1 > span + span > .gki-w:first-child { color: var(--pb-tawny); }
+#title .gk-menu button { color: rgba(236,231,220,.86); }
+#title .gk-menu .gk-primary { color: var(--pb-text); }
+#title .gk-menu .gk-meta { font-weight: 500; color: var(--pb-faint); }
+/* the canon marks the focused row with its wash and pointer; the page's own focus ring for buttons stays off it */
+#title .gk-menu button:focus { color: #fffaf0; box-shadow: none; }
+#title .gk-menu button:focus .gk-meta { color: var(--pb-muted); }
+/* the keys keep the page's pixel keycaps */
+#title .gk-menu kbd { font: 400 13px/1 var(--px); padding: 3px 6px; color: var(--pb-muted); border: 1px solid rgba(233,228,216,.28); border-bottom-width: 2px; background: rgba(233,228,216,.06); }
+#title .gk-menu button:focus kbd { color: var(--pb-text); border-color: var(--pb-yellow); }
+#title .gk-menu .gk-util { border-top-color: var(--pb-hair); }
+#title .gk-menu .gk-util button { padding: 0 18px; }
+#title .gki-tg:focus { background: var(--pb-panel); box-shadow: none; }
 
 /* ---- new game, the round's report, the end ---- */
 .diffs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-bottom: 18px; }

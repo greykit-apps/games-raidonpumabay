@@ -246,7 +246,8 @@
         <table class="aids">${line("Scanlines", "Fine dark lines over the bay, like an old television.", toggle("scan", PB.prefs.scanlines, "Scanlines"))}
         ${line("Screen shake", "The screen jolts with big explosions and hits." + (PB.calm() ? " Off to begin with, as this computer asks for less motion." : ""), toggle("shake", PB.prefs.shake, "Screen shake"))}</table>
         <h3>Sound</h3>
-        <table class="aids">${line("Sound", "The rotor, the guns, the bombs, the klaxon; the theme on the title. <kbd>M</kbd> switches it anywhere.", toggle("mute", !PB.SFX.muted, "Sound"))}</table>
+        <table class="aids">${line("Sound", "The rotor, the guns, the bombs, the klaxon; the theme on the title. <kbd>M</kbd> switches it anywhere.", toggle("mute", !PB.SFX.muted, "Sound"))}
+        ${line("Music", "The theme on the title. Off, the bay still sounds." + (PB.SFX.muted ? " Silent while Sound is off." : ""), toggle("music", PB.SFX.musicOn, "Music"))}</table>
         <h3>Game speed</h3>
         <div class="row">${Object.entries(PB.SPEEDS).map(([k, [n]]) => pill(PB.prefs.speed === k, n, "speed:" + k)).join("")}</div>
         <p class="note">Relaxed slows the whole game down, Brisk speeds it up. Nothing else changes.</p>
@@ -268,6 +269,7 @@
         else if (k === "shake") { PB.prefs.shake = !PB.prefs.shake; PB.savePrefs(); }
         else if (k === "resume") { PB.prefs.resume = !PB.prefs.resume; PB.savePrefs(); }
         else if (k === "mute") PB.game.toggleMute();
+        else if (k === "music") PB.game.setMusic(!PB.SFX.musicOn);
         else if (k === "speed") { PB.prefs.speed = a; PB.savePrefs(); PB.game.applySpeed(); }
         PB.game.syncAids();
         api.refresh();

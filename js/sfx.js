@@ -3,10 +3,14 @@
  * The rotor is always there while you fly, a thump at the blades' pace;
  * jets howl past; the gun rattles, bombs whistle down and land, flak pops
  * dull and close. The carrier's klaxon means bombers are coming for it. On
- * the title, rock of our own: the 1984 game had no music to borrow. */
+ * the title, rock of our own: the 1984 game had no music to borrow.
+ *
+ * Two switches (games-meta STANDARD.md §8, §14): Sound is the master, A.out,
+ * and silences everything; Music is the theme alone, on its own bus under it,
+ * so the effects (and the menu's ticks) play on without it. */
 "use strict";
 (() => {
-  const A = PB.SFX = { ctx: null, muted: false, out: null, loops: {}, tune: null };
+  const A = PB.SFX = { ctx: null, muted: false, musicOn: true, out: null, music: null, loops: {}, tune: null };
   let noiseBuf = null;
 
   A.unlock = () => {
@@ -15,10 +19,13 @@
     const a = A.ctx;
     A.out = a.createGain(); A.out.gain.value = A.muted ? 0 : 0.5; A.out.connect(a.destination);
     A.comp = a.createDynamicsCompressor(); A.comp.threshold.value = -16; A.comp.ratio.value = 4; A.comp.connect(A.out);
+    A.music = a.createGain(); A.music.gain.value = A.musicOn ? 1 : 0; A.music.connect(A.comp);
     noiseBuf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate);
     const d = noiseBuf.getChannelData(0);
     for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
   };
+  /* the music alone: the theme stops with it, and starts again from its first bar when it comes back on */
+  A.setMusic = on => { A.musicOn = on; if (A.music) A.music.gain.setTargetAtTime(on ? 1 : 0, A.ctx.currentTime, 0.05); if (!on) A.stopTune(); };
   A.setMuted = m => { A.muted = m; if (A.out) A.out.gain.value = m ? 0 : 0.5; if (m) { A.stopTune(); for (const k of Object.keys(A.loops)) A.loop(k, 0); } };
 
   function tone(f0, f1, ms, type, vol, dest, at = 0) {
@@ -133,6 +140,8 @@
   const BARS = ["riff", "riff", "riff", "riff", "riff", "riff", "riff", "riff", "chorus", "chorus", "chorus", "chorus", "push", "half", "push", "fill"];
   const CRASH = [0, 4, 8, 10, 12];
   const STEP = 60 / 152 / 4, N = BARS.length * 16;
+  /* a beat, in seconds: the title's entrance keeps time with it */
+  A.BEAT = STEP * 4;
   /* the song as events per sixteenth */
   const EV = Array.from({ length: N }, () => []);
   for (const [track, k] of [[GTR, "g"], [LEAD, "l"]]) { let t = 0; for (const [f, l, m] of track) { if (f) EV[t].push([k, f, l, m]); t += l; } }
@@ -144,9 +153,9 @@
   });
 
   A.startTune = () => {
-    if (A.muted || !A.ctx || A.tune) return;
+    if (A.muted || !A.musicOn || !A.ctx || A.tune) return;
     const a = A.ctx, g = a.createGain();
-    g.gain.value = 0.5; g.connect(A.comp);
+    g.gain.value = 0.5; g.connect(A.music);
     /* an amp: whatever goes in is clipped hard, then cut like a speaker cabinet */
     const amp = (k, cut, out) => {
       const inp = a.createGain(), ws = a.createWaveShaper(), hp = a.createBiquadFilter(), lp = a.createBiquadFilter(), o = a.createGain();

@@ -6,6 +6,7 @@
 (() => {
   const KEY_PREFS = "raidonpumabay_prefs_v1", KEY_SCORES = "raidonpumabay_scores_v1", KEY_GAME = "raidonpumabay_game_v1", KEY_NAME = "raidonpumabay_name_v1";
   PB.KEY_MUTED = "raidonpumabay_muted_v1";
+  PB.KEY_MUSIC = "raidonpumabay_music_v1";
 
   /* ---- the aids: Classic is 1984, Field is a modern helping hand ---- */
   PB.AID_LIST = [

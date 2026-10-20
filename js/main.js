@@ -1,9 +1,11 @@
 /* Raid on Puma Bay -- boot, title, the loop, and everything between.
  *
- * The greykit.games boot (the canon @gk-title block, STANDARD.md §3) while
- * the bay is painted, then the game's own title: the bay behind it with the
- * bot flying a raid, the name, the menu (§6's items and keys, read by the
- * block's own key lookup), the credit. Then a game. The engine runs at
+ * The greykit.games integrated intro (games-meta STANDARD.md §14, the shared
+ * gk-intro.js over the canon @gk-title boot): the boot while the bay is
+ * painted, a press to let the sound in where the browser wants one, then the
+ * block's default title over the bay with the bot flying a raid: the name,
+ * the menu (§6's items and keys, read by the block's own key lookup), the
+ * credit under it, the Sound and Music switches. Then a game. The engine runs at
  * fifty steps a second (or forty, or sixty: Settings), whatever the
  * screen's rate. */
 "use strict";
@@ -11,19 +13,35 @@
   const E = PB.Engine, C = PB.C, K = PB.K, UI = PB.UI, R = PB.Render, HUD = PB.HUD, SFX = PB.SFX, esc = PB.esc, $ = id => document.getElementById(id);
   const game = PB.game = { mode: "boot", S: null, demo: null, bot: null, ui: { mapView: false, aids: {} }, step: 20, acc: 0, last: 0, warned: 0, hintUntil: 0, teach: null, goalAt: 0 };
 
-  /* ---- sound on and off (STANDARD.md §8) ---- */
-  const readMuted = () => { try { return globalThis.localStorage.getItem(PB.KEY_MUTED) === "1"; } catch (e) { return false; } };
-  SFX.muted = readMuted();
+  /* ---- sound on and off (STANDARD.md §8), and the music on its own (§14) ---- */
+  const readFlag = (k, d) => { try { const v = globalThis.localStorage.getItem(k); return v === null ? d : v === "1"; } catch (e) { return d; } };
+  const writeFlag = (k, on) => { try { globalThis.localStorage.setItem(k, on ? "1" : "0"); } catch (e) { /* no storage */ } };
+  SFX.muted = readFlag(PB.KEY_MUTED, false);
+  SFX.musicOn = readFlag(PB.KEY_MUSIC, true);
   game.toggleMute = () => {
     SFX.unlock();
     SFX.setMuted(!SFX.muted);
-    try { globalThis.localStorage.setItem("raidonpumabay_muted_v1", SFX.muted ? "1" : "0"); } catch (e) { /* no storage */ }
+    writeFlag(PB.KEY_MUTED, SFX.muted);
     syncSound();
-    if (!SFX.muted) { SFX.play("menu"); if (game.mode === "title" && !SMALL.matches) SFX.startTune(); }
+    if (!SFX.muted) { SFX.play("menu"); titleTune(); }
     if (game.mode === "play") HUD.toast(SFX.muted ? "Sound off" : "Sound on", "", 1200);
   };
-  function syncSound() { const b = $("snd"); if (b) { b.setAttribute("aria-pressed", String(!SFX.muted)); b.classList.toggle("muted", SFX.muted); } }
+  game.setMusic = on => {
+    SFX.unlock();
+    SFX.setMusic(on);
+    writeFlag(PB.KEY_MUSIC, on);
+    syncSound();
+    if (on) titleTune();
+  };
+  /* the corner's Sound in a game, and the title's switches */
+  function syncSound() { const b = $("snd"); if (b) { b.setAttribute("aria-pressed", String(!SFX.muted)); b.classList.toggle("muted", SFX.muted); } if (game.sw) game.sw.refresh(); }
   const SMALL = matchMedia("(max-width: 759px), (max-height: 479px)");
+  /* the title theme: on the title, never ahead of its entrance (gk-intro's onTitle starts it then, as the
+     title fades up), and not on a small screen. wake() lets the browser's sound go on any key or click, and starts
+     the theme where the title is up without it */
+  const theme = () => { if (game.mode === "title" && !SFX.tune && !SMALL.matches) SFX.startTune(); };
+  const titleTune = () => { if (!game.entering) theme(); };
+  const wake = () => { SFX.unlock(); titleTune(); };
 
   game.applySpeed = () => { game.step = 1000 / (PB.SPEEDS[PB.prefs.speed] || PB.SPEEDS.classic)[1]; };
   game.applyLook = () => { $("stage").classList.toggle("scan", !!PB.prefs.scanlines); };
@@ -46,26 +64,16 @@
       ],
     };
   }
-  function titleHTML(cfg) {
-    const items = cfg.items.filter(Boolean), gap = items.indexOf("gap");
-    const main = items.slice(0, gap), util = items.slice(gap + 1);
-    let i = 0;
-    const btn = (it, big) => `<button data-act="${it.act}" class="pr${it.act === cfg.primary ? " dflt" : ""}" style="--i:${i++}"><kbd>${esc(it.key)}</kbd><span class="lbl">${esc(it.label)}</span>` +
-      (big && it.meta ? `<span class="meta">${esc(it.meta)}</span>` : "") + "</button>";
-    return `<div class="pb-title">
-      <canvas class="pb-scene" aria-hidden="true"></canvas><div class="pb-shade" aria-hidden="true"></div>
-      <main>
-        <h1 class="pb-mark" aria-label="${esc(cfg.name)}"><span class="raid">Raid on</span><span><span class="puma">Puma</span> Bay</span></h1>
-        <p class="pb-sub"><span>Six factories ·</span> <span>one battleship ·</span> <span>nine bombs at a time</span></p>
-        <nav class="pb-menu" aria-label="Main menu">${main.map(it => btn(it, true)).join("")}<div class="util">${util.map(it => btn(it, false)).join("")}</div></nav>
-      </main>
-      <footer class="pb-foot"><span class="gk-credit">${UI.CREDIT}</span></footer>
-    </div>`;
-  }
+  /* the title: the canon default (@gk-title v0.4, which was this game's own made the default) over the bay,
+   * in css/raidonpumabay.css's colours. Its markup is the block's, with no line under the name; the name's
+   * words are wrapped here so "Puma" can take the puma's colour */
+  function words(line) { line.innerHTML = line.dataset.t.split(" ").map(w => `<span class="gki-w">${esc(w)}</span>`).join(" "); }
   function openTitle() {
     game.mode = "title";
     const el = $("title");
-    el.innerHTML = titleHTML(titleCfg());
+    el.innerHTML = titleHTML(Object.assign(titleCfg(), { scene: true }));
+    el.querySelector(".scene").innerHTML = '<canvas class="pb-scene"></canvas>';
+    el.querySelectorAll("h1 span[data-t]").forEach(words);
     el.hidden = false;
     $("game").hidden = true;
     document.body.classList.add("on-title");
@@ -87,21 +95,35 @@
     for (let i = 0; i < 400; i++) E.tick(game.demo, game.bot.cmd(game.demo));
     game.demoCam = null;
   }
-  function revealTitle(print = true) {
-    const t = document.querySelector("#title .pb-title");
+  /* back on the title: the menu prints in (the name stays put, as it always has here), or, redrawn in
+     place, only the focus */
+  function showTitle(print = true) {
+    const t = document.querySelector("#title .gk-title");
     if (!t) return;
-    if (print) t.classList.add("pb-print");
-    const b = t.querySelector(".pb-menu .dflt") || t.querySelector(".pb-menu button");
+    if (print) t.classList.add("gk-rise");
+    const b = t.querySelector(".gk-primary") || t.querySelector(".gk-menu button");
     if (b) b.focus({ preventScroll: true });
   }
-  game.refreshTitle = () => { if (game.mode !== "title") return; openTitle(); revealTitle(false); };
+  /* the opening, the first time the title shows (gk-intro's finish): the bay alone with the bot's raid,
+     the theme starting with it, "Raid" arriving on its first chord (after its 0.1 s lead) and "on", "Puma",
+     "Bay" every other beat after, and the menu landing on the third bar (two bars at 152, 3.16 s).
+     A key or a click skips to the end of it */
+  const BEAT = SFX.BEAT * 1000, MENU_AT = Math.round(100 + BEAT * 8);
+  const INTRO = { name: 100, step: Math.round(BEAT * 2), menu: MENU_AT, done: MENU_AT + 1200 };
+  /* the integrated title (§14): the credit under the menu, the switches top right, a tick on every row the
+     pointer or the arrows reach. finish() does it the first time; each later mount of the title does it again */
+  const toggles = { sound: { get: () => !SFX.muted, set: on => { if (on === SFX.muted) game.toggleMute(); } },
+    music: { get: () => SFX.musicOn, set: on => game.setMusic(on) } };
+  const tick = () => gkTick(SFX.ctx, SFX.comp);
+  function integrate() { const t = document.querySelector("#title .gk-title"); if (t) game.sw = gkIntegrate(t, { toggles, tick }); }
+  game.refreshTitle = () => { if (game.mode !== "title") return; openTitle(); integrate(); showTitle(false); };
   game.toTitle = () => {
     UI.close(true);
     game.S = null; game.ui.mapView = false;
     SFX.stopLoops();
     PB.Input.clear(); HUD.clear(); PB.FX.clear();
-    openTitle(); revealTitle();
-    if (!SMALL.matches) SFX.startTune();
+    openTitle(); integrate(); showTitle();
+    theme();
   };
   async function titleAct(a) {
     SFX.unlock();
@@ -115,10 +137,10 @@
   function titleKey(ev) {
     const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
     if (k === "Enter" || k === " " || k === "Tab" || k === "Shift") return;
-    const menu = document.querySelector("#title .pb-menu"), hit = menu && titleKeyButton(menu, k);
+    const menu = document.querySelector("#title .gk-menu"), hit = menu && titleKeyButton(menu, k);
     if (hit) { ev.preventDefault(); titleAct(hit.dataset.act); return; }
     /* the row of Settings, Help and About walks left and right as well */
-    const row = (k === "ArrowLeft" || k === "ArrowRight") && document.activeElement && document.activeElement.closest(".pb-menu .util");
+    const row = (k === "ArrowLeft" || k === "ArrowRight") && document.activeElement && document.activeElement.closest(".gk-menu .gk-util");
     if (row) {
       const bs = [...row.querySelectorAll("button")], i = bs.indexOf(document.activeElement);
       ev.preventDefault(); bs[(i + (k === "ArrowRight" ? 1 : -1) + bs.length) % bs.length].focus(); return;
@@ -382,9 +404,12 @@
   }
 
   /* ---- keys ---- */
+  /* on the window, ahead of the boot, which keeps the key that skips it from the document */
+  addEventListener("keydown", wake, true);
+  /* a click that skips the entrance is spent on it (gk-intro keeps it from the page); note when it came, so the
+     click it makes cannot land on a row that was not there when it was pressed */
+  addEventListener("pointerdown", () => { if (game.entering) game.skippedAt = performance.now(); }, true);
   document.addEventListener("keydown", ev => {
-    SFX.unlock();
-    if (game.mode === "title" && !SFX.tune && !SMALL.matches) SFX.startTune();
     if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
     if (UI.sheet) { UI.key(ev); return; }
     const k = ev.key.length === 1 ? ev.key.toLowerCase() : ev.key;
@@ -408,7 +433,7 @@
   addEventListener("blur", () => { PB.Input.clear(); if (game.mode === "play") game.pause(); });
   document.addEventListener("visibilitychange", () => { if (document.hidden) { checkpoint(); if (game.mode === "play") game.pause(); } });
   addEventListener("pagehide", () => checkpoint());
-  document.addEventListener("pointerdown", () => { SFX.unlock(); if (game.mode === "title" && !SFX.tune && !SMALL.matches) SFX.startTune(); }, true);
+  document.addEventListener("pointerdown", wake, true);
   /* the pointer moves the focus, so the lit control is the one under it */
   /* but not in a question before something that cannot be undone: there Enter stays on Cancel, and the pointer only lights what it is over */
   document.addEventListener("pointerover", ev => {
@@ -420,7 +445,7 @@
     if (document.querySelector(".pb-ask")) return;
     b.focus({ preventScroll: true });
   });
-  $("title").addEventListener("click", ev => { const b = ev.target.closest("[data-act]"); if (b) titleAct(b.dataset.act); });
+  $("title").addEventListener("click", ev => { const b = ev.target.closest("[data-act]"); if (b && !(performance.now() - (game.skippedAt || 0) < 600)) titleAct(b.dataset.act); });
   $("snd").addEventListener("click", () => game.toggleMute());
   $("pausebtn").addEventListener("click", () => game.pause());
   $("screen").addEventListener("contextmenu", ev => ev.preventDefault());
@@ -440,12 +465,20 @@
   /* ---- boot ---- */
   function boot() {
     game.applySpeed(); game.applyLook(); game.syncAids(); syncSound();
-    injectTitleCSS();     /* the boot's; the title and the sheets are css/raidonpumabay.css */
+    injectTitleCSS();     /* the boot's and the title's; the title's colours and the sheets are css/raidonpumabay.css */
     fit();
     const q = new URLSearchParams(location.search);
-    const run = SMALL.matches || q.has("play") ? { finish: async () => {}, cancel() {} } : runBoot({ lines: [bootReloadLine(), "charting the bay"] });
-    /* the boot is on screen: now the slow part, painting the bay */
-    setTimeout(() => {
+    const lines = [bootReloadLine(), "charting the bay"];
+    /* the integrated intro, but not on a small screen (the page asks for a desktop), a debug game (?play), or a
+       picture (?shot, ?sheet): those keep the plain boot, and ?play none at all */
+    const plain = SMALL.matches || q.has("play") || q.has("shot") || q.has("sheet");
+    const intro = plain ? null : startIntro({ lines, audio: () => { SFX.unlock(); return SFX.ctx; } });
+    const run = intro ? null : SMALL.matches || q.has("play") ? { finish: async () => {}, cancel() {} } : runBoot({ lines });
+    /* the boot is on screen: now the slow part, painting the bay, which holds the page a second or two. Where
+       the browser will play sound, the meow is placed on the audio clock first, or it would come too late to
+       end with the logo and be dropped; finding out takes a quarter of a second at most */
+    const settle = intro ? gkSoundAllowed(SFX.ctx).then(ok => ok ? gkMeowBuffer(SFX.ctx) : null) : Promise.resolve();
+    settle.then(() => setTimeout(() => {
       PB.Terrain.build();
       R.init($("screen"));
       HUD.build();
@@ -457,18 +490,32 @@
         if (q.has("map")) game.ui.mapView = true;
         if (q.has("pause")) game.pause();
       } else {
+        /* the title's entrance is gk-intro's until the menu is in; debug: &hold=always holds for the press even
+           where the browser would play sound already (the in-app browser, a launch from the arcade) */
+        if (intro) game.entering = true;
         openTitle();
         const saved = PB.loadGame(), best = PB.scores()[0];
-        run.finish(["six factories sighted", saved ? "a raid in progress" : best ? `best: ${best.score.toLocaleString("en-US")}` : "carrier on station"]).then(() => {
+        const more = ["six factories sighted", saved ? "a raid in progress" : best ? `best: ${best.score.toLocaleString("en-US")}` : "carrier on station"];
+        /* a moment first for the boot's own lines, which the painting held up, so they print ahead of these */
+        setTimeout(() => intro ? enter(more) : run.finish(more).then(() => {
           /* debug, for screenshots: ?shot=1 shows the menu without its entrance */
-          revealTitle(!q.has("shot"));
+          showTitle(!q.has("shot"));
           const sheet = q.get("sheet");
           if (sheet && UI[sheet]) UI[sheet]();
-        });
+        }), 20);
+        if (!intro) integrate();
       }
       game.last = performance.now();
       requestAnimationFrame(frame);
-    }, 60);
+    }, 60));
+    /* the integrated intro's end: the hold if the browser wants one, then the title's entrance */
+    function enter(more) {
+      intro.finish({ more, name: "words", timing: INTRO, hold: q.get("hold") === "always" ? "always" : "auto", toggles, tick,
+        onContinue: wake,
+        /* the title fades up, and the theme starts with it */
+        onTitle: theme,
+        onDone: () => { game.entering = false; titleTune(); } }).then(r => { game.sw = r.toggles; });
+    }
   }
   boot();
 })();
