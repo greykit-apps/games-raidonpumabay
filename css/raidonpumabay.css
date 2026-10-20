@@ -157,8 +157,6 @@ img.glyph { display: block; }
 #title .gk-title h1 > span:first-child { font-size: .48em; letter-spacing: .14em; color: var(--pb-muted); margin-bottom: .12em; }
 #title .gk-title h1 > span + span { color: var(--pb-text); }
 #title .gk-title h1 > span + span > .gki-w:first-child { color: var(--pb-tawny); }
-#title .gk-title .gk-sub { max-width: 440px; line-height: 1.6; letter-spacing: .2em; text-wrap: balance; text-shadow: 0 1px 10px rgba(6,10,16,.9); }
-#title .gk-title .gk-sub > span { white-space: nowrap; }
 #title .gk-menu button { color: rgba(236,231,220,.86); }
 #title .gk-menu .gk-primary { color: var(--pb-text); }
 #title .gk-menu .gk-meta { font-weight: 500; color: var(--pb-faint); }

@@ -65,17 +65,15 @@
     };
   }
   /* the title: the canon default (@gk-title v0.4, which was this game's own made the default) over the bay,
-   * in css/raidonpumabay.css's colours. Its markup is the block's; the name's words and the line under it
-   * are wrapped here so "Puma" can take the puma's colour and the line breaks only between its parts */
-  const SUB = ["Six factories ·", "one battleship ·", "nine bombs at a time"];
+   * in css/raidonpumabay.css's colours. Its markup is the block's, with no line under the name; the name's
+   * words are wrapped here so "Puma" can take the puma's colour */
   function words(line) { line.innerHTML = line.dataset.t.split(" ").map(w => `<span class="gki-w">${esc(w)}</span>`).join(" "); }
   function openTitle() {
     game.mode = "title";
     const el = $("title");
-    el.innerHTML = titleHTML(Object.assign(titleCfg(), { sub: SUB.join(" "), scene: true }));
+    el.innerHTML = titleHTML(Object.assign(titleCfg(), { scene: true }));
     el.querySelector(".scene").innerHTML = '<canvas class="pb-scene"></canvas>';
     el.querySelectorAll("h1 span[data-t]").forEach(words);
-    el.querySelector(".gk-sub").innerHTML = SUB.map(p => `<span>${esc(p)}</span>`).join(" ");
     el.hidden = false;
     $("game").hidden = true;
     document.body.classList.add("on-title");

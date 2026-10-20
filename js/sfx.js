@@ -141,7 +141,7 @@
   const CRASH = [0, 4, 8, 10, 12];
   const STEP = 60 / 152 / 4, N = BARS.length * 16;
   /* the count-in under the title's entrance: two bars, the rotor spinning up from quarters to sixteenths,
-     the guitar swelling into feedback, a snare roll into the riff's first crash, which the menu lands on */
+     and a snare roll into the riff's first crash, which the menu lands on */
   A.COUNT_IN = STEP * 32;
   /* the song as events per sixteenth */
   const EV = Array.from({ length: N }, () => []);
@@ -233,14 +233,6 @@
         noise(at, "lowpass", 260 + 500 * v, 0.5 * v, 0.12, 0.9);
         thump(at, 90, 50, 0.35 * v, 0.1);
       });
-      /* the guitar: an open E feeding back, swelling through the second bar and cut dead on the downbeat */
-      const sw = a.createGain(), end = st.t0 - 0.01;
-      sw.gain.setValueAtTime(0, b + STEP * 12); sw.gain.linearRampToValueAtTime(0.16, end - 0.02); sw.gain.linearRampToValueAtTime(0, end);
-      sw.connect(gtr.inp);
-      for (const [r, d] of [[1, -6], [1.5, 6], [2, 0], [4, 3]]) {
-        const o = a.createOscillator(); o.type = "sawtooth"; o.frequency.value = NOTE("E3") * r; o.detune.value = d;
-        o.connect(sw); o.start(b + STEP * 12); o.stop(end + 0.02);
-      }
       /* the snare, a roll down the last beat */
       for (let i = 0; i < 4; i++) DRUM.s(b + (28 + i) * STEP, 0.4 + i * 0.15);
     }
