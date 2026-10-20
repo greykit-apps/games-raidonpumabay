@@ -18,4 +18,4 @@ tools/       sim-check (the bot plays every difficulty headless), asset stamps a
 
 ## The intro
 
-The integrated intro (games-meta STANDARD.md §14): the boot with the meow, a hold for a press only where the browser will not play sound yet, then the bay alone while "Raid on Puma Bay" fades in a word every other beat of the theme's two-bar count-in, and the menu landing on the riff's first crash. `?hold=always` holds even where the browser would play sound; `?shot` and `?sheet` keep the plain boot, and `?play` has none.
+The integrated intro (games-meta STANDARD.md §14): the boot with the meow, a hold for a press only where the browser will not play sound yet, then the bay alone while "Raid on Puma Bay" fades in as the theme starts, "Raid" on its first chord and a word every other beat after, and the menu landing two bars in. `?hold=always` holds even where the browser would play sound; `?shot` and `?sheet` keep the plain boot, and `?play` has none.

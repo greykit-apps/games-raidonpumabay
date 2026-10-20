@@ -36,10 +36,10 @@
   /* the corner's Sound in a game, and the title's switches */
   function syncSound() { const b = $("snd"); if (b) { b.setAttribute("aria-pressed", String(!SFX.muted)); b.classList.toggle("muted", SFX.muted); } if (game.sw) game.sw.refresh(); }
   const SMALL = matchMedia("(max-width: 759px), (max-height: 479px)");
-  /* the title theme: on the title, never during its entrance (gk-intro's onTitle starts it then, with its
-     count-in), and not on a small screen. wake() lets the browser's sound go on any key or click, and starts
+  /* the title theme: on the title, never ahead of its entrance (gk-intro's onTitle starts it then, as the
+     title fades up), and not on a small screen. wake() lets the browser's sound go on any key or click, and starts
      the theme where the title is up without it */
-  const theme = (countIn = false) => { if (game.mode === "title" && !SFX.tune && !SMALL.matches) SFX.startTune(countIn); };
+  const theme = () => { if (game.mode === "title" && !SFX.tune && !SMALL.matches) SFX.startTune(); };
   const titleTune = () => { if (!game.entering) theme(); };
   const wake = () => { SFX.unlock(); titleTune(); };
 
@@ -105,11 +105,11 @@
     if (b) b.focus({ preventScroll: true });
   }
   /* the opening, the first time the title shows (gk-intro's finish): the bay alone with the bot's raid,
-     "Raid", "on", "Puma", "Bay" fading in a word every other beat of the theme's count-in, and the menu
-     landing on the riff's first crash (sfx.js's COUNT_IN, two bars at 152, 3.16 s, after its 0.1 s lead).
+     the theme starting with it, "Raid" arriving on its first chord (after its 0.1 s lead) and "on", "Puma",
+     "Bay" every other beat after, and the menu landing on the third bar (two bars at 152, 3.16 s).
      A key or a click skips to the end of it */
-  const BEAT = SFX.COUNT_IN / 8 * 1000, MENU_AT = Math.round(100 + SFX.COUNT_IN * 1000);
-  const INTRO = { name: Math.round(100 + BEAT), step: Math.round(BEAT * 2), menu: MENU_AT, done: MENU_AT + 1200 };
+  const BEAT = SFX.BEAT * 1000, MENU_AT = Math.round(100 + BEAT * 8);
+  const INTRO = { name: 100, step: Math.round(BEAT * 2), menu: MENU_AT, done: MENU_AT + 1200 };
   /* the integrated title (§14): the credit under the menu, the switches top right, a tick on every row the
      pointer or the arrows reach. finish() does it the first time; each later mount of the title does it again */
   const toggles = { sound: { get: () => !SFX.muted, set: on => { if (on === SFX.muted) game.toggleMute(); } },
@@ -512,16 +512,9 @@
     function enter(more) {
       intro.finish({ more, name: "words", timing: INTRO, hold: q.get("hold") === "always" ? "always" : "auto", toggles, tick,
         onContinue: wake,
-        /* the title fades up: the theme starts its count-in (none for a title that shows at once and still,
-           under reduced motion) */
-        onTitle: () => theme(!reduced()),
-        onDone: () => {
-          game.entering = false;
-          /* skipped: the count-in is cut and the theme starts at its first bar, with the menu */
-          const tn = SFX.tune;
-          if (tn && tn.intro && SFX.ctx.currentTime < tn.t0 - 0.15) { SFX.stopTune(); theme(); }
-          else titleTune();
-        } }).then(r => { game.sw = r.toggles; });
+        /* the title fades up, and the theme starts with it */
+        onTitle: theme,
+        onDone: () => { game.entering = false; titleTune(); } }).then(r => { game.sw = r.toggles; });
     }
   }
   boot();

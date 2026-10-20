@@ -140,9 +140,8 @@
   const BARS = ["riff", "riff", "riff", "riff", "riff", "riff", "riff", "riff", "chorus", "chorus", "chorus", "chorus", "push", "half", "push", "fill"];
   const CRASH = [0, 4, 8, 10, 12];
   const STEP = 60 / 152 / 4, N = BARS.length * 16;
-  /* the count-in under the title's entrance: two bars, the rotor spinning up from quarters to sixteenths,
-     and a snare roll into the riff's first crash, which the menu lands on */
-  A.COUNT_IN = STEP * 32;
+  /* a beat, in seconds: the title's entrance keeps time with it */
+  A.BEAT = STEP * 4;
   /* the song as events per sixteenth */
   const EV = Array.from({ length: N }, () => []);
   for (const [track, k] of [[GTR, "g"], [LEAD, "l"]]) { let t = 0; for (const [f, l, m] of track) { if (f) EV[t].push([k, f, l, m]); t += l; } }
@@ -153,7 +152,7 @@
     if (CRASH.includes(b)) EV[b * 16].push(["c", 1]);
   });
 
-  A.startTune = (countIn = false) => {
+  A.startTune = () => {
     if (A.muted || !A.musicOn || !A.ctx || A.tune) return;
     const a = A.ctx, g = a.createGain();
     g.gain.value = 0.5; g.connect(A.music);
@@ -223,19 +222,7 @@
       c: at => noise(at, "highpass", 4800, 0.22, 1.3, 0.5),
     };
 
-    const st = { g, fb, t0: a.currentTime + 0.1 + (countIn ? A.COUNT_IN : 0), n: 0, timer: null, intro: countIn };
-    if (countIn) {
-      const b = st.t0 - A.COUNT_IN;
-      /* the rotor: a quarter, then eighths, then sixteenths, louder as it comes up to speed */
-      const blades = [0, 4, 8, 12, 16, 18, 20, 22, 24, 26, 28, 29, 30, 31];
-      blades.forEach((s, i) => {
-        const at = b + s * STEP, v = 0.3 + 0.7 * i / (blades.length - 1);
-        noise(at, "lowpass", 260 + 500 * v, 0.5 * v, 0.12, 0.9);
-        thump(at, 90, 50, 0.35 * v, 0.1);
-      });
-      /* the snare, a roll down the last beat */
-      for (let i = 0; i < 4; i++) DRUM.s(b + (28 + i) * STEP, 0.4 + i * 0.15);
-    }
+    const st = { g, fb, t0: a.currentTime + 0.1, n: 0, timer: null };
     const sched = () => {
       /* a throttled background tab must not come back to a pile of overdue notes */
       const late = a.currentTime + 0.02 - st.t0;
