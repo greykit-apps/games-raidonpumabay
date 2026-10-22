@@ -8,7 +8,8 @@
  * and B drops a bomb; hold B to drop a stick of them. */
 "use strict";
 (() => {
-  const I = PB.Input = { held: new Set(), pressed: new Set(), pad: new Set(), padPrev: new Set(), stick: null, bombHeld: 0, device: "keys" };
+  /* touch: what the on-screen pad holds (main.js setupTouch), read as the keys and the pad are */
+  const I = PB.Input = { held: new Set(), pressed: new Set(), pad: new Set(), touch: new Set(), padPrev: new Set(), stick: null, bombHeld: 0, device: "keys" };
   const BIND = {
     ArrowUp: "up", KeyW: "up", Numpad8: "up", ArrowDown: "down", KeyS: "down", Numpad2: "down", Numpad5: "down",
     ArrowLeft: "left", KeyA: "left", Numpad4: "left", ArrowRight: "right", KeyD: "right", Numpad6: "right",
@@ -30,8 +31,8 @@
     return true;
   };
   I.up = ev => { const a = BIND[ev.code]; if (a) I.held.delete(a); };
-  I.clear = () => { I.held.clear(); I.pad.clear(); I.pressed.clear(); I.stick = null; I.bombHeld = 0; };
-  const on = a => I.held.has(a) || I.pad.has(a);
+  I.clear = () => { I.held.clear(); I.pad.clear(); I.touch.clear(); I.pressed.clear(); I.stick = null; I.bombHeld = 0; };
+  const on = a => I.held.has(a) || I.pad.has(a) || I.touch.has(a);
 
   /* the command for one step */
   I.cmd = () => {

@@ -29,12 +29,22 @@
 <link rel="icon" type="image/png" sizes="16x16" href="favicon-16x16.png">
 <link rel="icon" href="favicon.ico" sizes="16x16 32x32 48x48">
 <link rel="stylesheet" href="css/gk-tokens.css?v=7c37e1f9">
-<link rel="stylesheet" href="css/raidonpumabay.css?v=e035e786">
+<link rel="stylesheet" href="css/raidonpumabay.css?v=3eb1b094">
 </head>
 <body>
 <div id="game" hidden>
   <div id="stage"><canvas id="screen" width="480" height="300" aria-label="Raid on Puma Bay: the bay"></canvas></div>
   <div id="hud"></div>
+  <div id="touch" hidden>
+    <div class="dpad" role="group" aria-label="Direction pad"><span class="arm h"></span><span class="arm v"></span><span class="hub"></span>
+      <i class="tri up"></i><i class="tri down"></i><i class="tri left"></i><i class="tri right"></i></div>
+    <div class="face" role="group" aria-label="Buttons">
+      <button data-a="map" class="y" aria-label="Map">Map</button>
+      <button data-a="brake" class="x" aria-label="Brake">Brake</button>
+      <button data-a="bomb" class="b" aria-label="Bomb">Bomb</button>
+      <button data-a="fire" class="a" aria-label="Gun">Gun</button>
+    </div>
+  </div>
   <div id="corner">
     <button id="pausebtn" aria-label="Pause" title="Pause (Esc)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><rect x="4" y="3" width="3" height="10" fill="currentColor"/><rect x="9" y="3" width="3" height="10" fill="currentColor"/></svg></button>
     <button id="snd" aria-label="Sound" aria-pressed="true" title="Sound (M)"><svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><path d="M2 6h3l4-3v10l-4-3H2z" fill="currentColor"/><path class="on" d="M11 5.5c1.2 1.4 1.2 3.6 0 5M12.8 3.8c2.1 2.4 2.1 6 0 8.4" stroke="currentColor" stroke-width="1.4" fill="none"/><path class="off" d="M11 5.5l4 5M15 5.5l-4 5" stroke="currentColor" stroke-width="1.4"/></svg></button>
@@ -44,8 +54,8 @@
 <div id="title" hidden></div>
 <div id="small" role="dialog" aria-labelledby="small-h">
   <img class="px" src="icon.svg" width="96" height="96" alt="">
-  <h1 id="small-h">Raid on Puma Bay is built for a desktop</h1>
-  <p>Six factories and a battleship need a keyboard, or a gamepad, and a bigger screen than this. Come back on a computer.</p>
+  <h1 id="small-h">Turn your phone sideways</h1>
+  <p>Six factories and a battleship need a wide screen. Raid on Puma Bay plays on a phone held sideways, or on a computer.</p>
   <p class="gk-credit">Built by <a href="https://greykit.com/" target="_blank" rel="noopener">greykit.com</a></p>
 </div>
 <script src="js/gk-title.js?v=e2c324dc"></script>
@@ -63,11 +73,11 @@
 <script src="js/art/fx.js?v=47f199ac"></script>
 <script src="js/art/terrain.js?v=3b6af247"></script>
 <script src="js/store.js?v=7c46cb5e"></script>
-<script src="js/input.js?v=f1323f4f"></script>
+<script src="js/input.js?v=1e671bf5"></script>
 <script src="js/sfx.js?v=78a8d43f"></script>
 <script src="js/render.js?v=97860d0a"></script>
 <script src="js/hud.js?v=091cd4bf"></script>
 <script src="js/screens.js?v=d7edb895"></script>
-<script src="js/main.js?v=cb4d99e4"></script>
+<script src="js/main.js?v=093b28fd"></script>
 </body>
 </html>

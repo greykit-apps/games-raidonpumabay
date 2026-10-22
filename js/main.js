@@ -35,7 +35,7 @@
   };
   /* the corner's Sound in a game, and the title's switches */
   function syncSound() { const b = $("snd"); if (b) { b.setAttribute("aria-pressed", String(!SFX.muted)); b.classList.toggle("muted", SFX.muted); } if (game.sw) game.sw.refresh(); }
-  const SMALL = matchMedia("(max-width: 759px), (max-height: 479px)");
+  const SMALL = matchMedia("(max-width: 639px), (max-height: 299px)");
   /* the title theme: on the title, never ahead of its entrance (gk-intro's onTitle starts it then, as the
      title fades up), and not on a small screen. wake() lets the browser's sound go on any key or click, and starts
      the theme where the title is up without it */
@@ -328,6 +328,7 @@
     const S = game.S;
     if (game.mode === "play") {
       const fresh = PB.Input.pollPad();
+      if ((fresh.length || PB.Input.stick) && touchAway) touchAway(true);
       if (!UI.sheet) {
         for (const a of fresh) konamiStep("pad", a);
         if (fresh.includes("pause")) { game.pause(); return; }
@@ -450,6 +451,64 @@
   $("pausebtn").addEventListener("click", () => game.pause());
   $("screen").addEventListener("contextmenu", ev => ev.preventDefault());
 
+  /* ---- touch: a standard cross d-pad over the bay's left edge, the face buttons over its right (gun at the
+     foot, bomb right, brake left, map at the head), fed to the input the keys and the pad feed. Shown on a
+     touchscreen only, away once a key or a pad is used, back at the next touch ---- */
+  let touchAway = null;
+  function setupTouch() {
+    const pad = $("touch");
+    if (!pad || (!("ontouchstart" in window) && !navigator.maxTouchPoints)) return;
+    pad.hidden = false;
+    const I = PB.Input, T = I.touch;
+    for (const b of pad.querySelectorAll("[data-a]")) {
+      const a = b.dataset.a;
+      b.addEventListener("pointerdown", ev => {
+        ev.preventDefault(); SFX.unlock();
+        if (game.mode !== "play" || UI.sheet) return;
+        if (a === "map") { toggleMap(); return; }
+        if (game.ui.mapView) return;
+        T.add(a); I.pressed.add(a); b.classList.add("on");
+      });
+      const off = ev => { ev.preventDefault(); T.delete(a); b.classList.remove("on"); };
+      for (const e of ["pointerup", "pointercancel", "pointerleave"]) b.addEventListener(e, off);
+    }
+    /* the d-pad is one piece, as a pad's is: the thumb's place on the cross is the direction, so it rolls from
+       arm to arm, and between two arms is the diagonal */
+    const dpad = pad.querySelector(".dpad"), DIRS = ["up", "down", "left", "right"];
+    const tri = Object.fromEntries(DIRS.map(d => [d, dpad.querySelector(".tri." + d)]));
+    const EIGHT = { 0: ["right"], 1: ["right", "down"], 2: ["down"], 3: ["down", "left"], 4: ["left"], "-4": ["left"], "-3": ["left", "up"], "-2": ["up"], "-1": ["up", "right"] };
+    let dirs = new Set(), pid = null;
+    const setDirs = next => {
+      for (const d of DIRS) {
+        const was = dirs.has(d), now = next.has(d);
+        if (now && !was) { T.add(d); I.pressed.add(d); }
+        if (was && !now) T.delete(d);
+        tri[d].classList.toggle("on", now);
+      }
+      dirs = next;
+    };
+    const read = ev => {
+      const r = dpad.getBoundingClientRect(), dx = ev.clientX - (r.left + r.width / 2), dy = ev.clientY - (r.top + r.height / 2);
+      if (Math.hypot(dx, dy) < r.width * 0.12) return new Set();
+      return new Set(EIGHT[Math.round(Math.atan2(dy, dx) * 180 / Math.PI / 45)]);
+    };
+    dpad.addEventListener("pointerdown", ev => {
+      ev.preventDefault(); SFX.unlock();
+      pid = ev.pointerId; try { dpad.setPointerCapture(pid); } catch (e) { /* fine */ }
+      setDirs(read(ev));
+    });
+    dpad.addEventListener("pointermove", ev => { if (ev.pointerId === pid) { ev.preventDefault(); setDirs(read(ev)); } });
+    const lift = ev => { if (ev.pointerId === pid) { pid = null; setDirs(new Set()); } };
+    dpad.addEventListener("pointerup", lift); dpad.addEventListener("pointercancel", lift);
+    touchAway = on => {
+      if (pad.classList.contains("away") === on) return;
+      pad.classList.toggle("away", on);
+      if (on) { pid = null; setDirs(new Set()); T.clear(); for (const b of pad.querySelectorAll(".on")) b.classList.remove("on"); }
+    };
+    addEventListener("keydown", ev => { if (ev.isTrusted) touchAway(true); }, true);
+    addEventListener("pointerdown", ev => { if (ev.pointerType === "touch") touchAway(false); }, true);
+  }
+
   /* ---- the stage: the whole window, about three hundred pixels high, square pixels ---- */
   function fit() {
     const k = Math.max(2, Math.round(innerHeight / 300));
@@ -464,7 +523,7 @@
 
   /* ---- boot ---- */
   function boot() {
-    game.applySpeed(); game.applyLook(); game.syncAids(); syncSound();
+    game.applySpeed(); game.applyLook(); game.syncAids(); syncSound(); setupTouch();
     injectTitleCSS();     /* the boot's and the title's; the title's colours and the sheets are css/raidonpumabay.css */
     fit();
     const q = new URLSearchParams(location.search);
